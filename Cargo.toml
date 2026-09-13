@@ -1,0 +1,15 @@
+[package]
+name = "ray_trace"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam = { version = "0.33.5", features = ["bytemuck"] }
+pollster = "1.0.1"
+wgpu = "30.0.0"
+winit = "0.30.13"
+bytemuck = "1.25.2"
+
+[package.metadata.bundle]
+name = "Wgpu Intro"
+identifier = "com.twidilers.wgpu"
