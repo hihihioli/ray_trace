@@ -2,7 +2,7 @@ use crate::blit::BlitResources;
 use crate::compute::ComputeResources;
 use std::sync::Arc;
 use wgpu::BindingResource::TextureView;
-use wgpu::{BindGroupDescriptor, BindGroupEntry, BindingResource, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Instance, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Instance, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -45,10 +45,11 @@ impl GpuState {
             .request_device(&DeviceDescriptor::default())
             .await
             .unwrap(); // a connection to the gpu and what we submit commands to
-        let config = surface
+        let mut config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap(); // get the config
-
+        config.present_mode = PresentMode::AutoNoVsync;
+        
         println!("Adapter info {:?}", adapter.get_info());
 
         surface.configure(&device, &config);
@@ -80,10 +81,7 @@ impl GpuState {
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        let size = PhysicalSize::new(new_size.width.max(1), new_size.width.max(1)*3/4);
-        if size != new_size {
-            let _ = self.window.request_inner_size(size);
-        }
+        let size = PhysicalSize::new(new_size.width.max(1), new_size.height.max(1));
         self.config.width = size.width;
         self.config.height = size.height;
         self.size = size;

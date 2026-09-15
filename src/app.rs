@@ -1,19 +1,21 @@
 use crate::graphics::GpuState;
 use crate::input::Input;
 use std::sync::Arc;
+use std::time::Instant;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent::{self, CloseRequested, RedrawRequested, Resized},
     event_loop::ActiveEventLoop,
     window::{WindowAttributes, WindowId},
 };
-use winit::dpi::PhysicalSize;
-use winit::dpi::Size::Physical;
 
 pub struct App {
     // This is controlled by winit
     gpu: Option<GpuState>,
     input: Input,
+    instant: Instant,
+    avg_fps: f64,
+    num: u64,
 }
 
 impl App {
@@ -21,6 +23,9 @@ impl App {
         Self {
             gpu: None,
             input: Input::new(),
+            instant: Instant::now(),
+            avg_fps: 0.0,
+            num: 0,
         }
     }
 }
@@ -32,7 +37,7 @@ impl ApplicationHandler for App {
             // ignore a recreation request
             return;
         }
-        let window_attributes = WindowAttributes::default().with_inner_size(Physical(PhysicalSize::new(200,300)))
+        let window_attributes = WindowAttributes::default()
             .with_title("Wgpu Intro");
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
@@ -57,7 +62,17 @@ impl ApplicationHandler for App {
             CloseRequested => {
                 event_loop.exit();
             }
-            RedrawRequested => gpu.render(),
+            RedrawRequested => {
+                gpu.render();
+                let fps = 1.0 / self.instant.elapsed().as_secs_f64();
+                if !fps.is_nan() {
+                    self.avg_fps = self.avg_fps * (self.num as f64 / (self.num as f64 + 1.0));
+                    self.avg_fps += fps / (self.num as f64 + 1.0);
+                    self.num += 1;
+                }
+                gpu.window.set_title(format!("Wgpu Intro: {} fps",self.avg_fps).as_str());
+                self.instant = Instant::now();
+            },
             _ => {}
         }
     }
