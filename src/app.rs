@@ -64,13 +64,13 @@ impl ApplicationHandler for App {
             }
             RedrawRequested => {
                 gpu.render();
-                let fps = 1.0 / self.instant.elapsed().as_secs_f64();
-                if !fps.is_nan() {
+                let frame_time = self.instant.elapsed().as_secs_f64() * 1000.0;
+                if frame_time != 0.0 {
                     self.avg_fps = self.avg_fps * (self.num as f64 / (self.num as f64 + 1.0));
-                    self.avg_fps += fps / (self.num as f64 + 1.0);
+                    self.avg_fps += frame_time / (self.num as f64 + 1.0);
                     self.num += 1;
                 }
-                gpu.window.set_title(format!("Wgpu Intro: {} fps",self.avg_fps).as_str());
+                gpu.window.set_title(format!("Ray Tracer: {} ms",self.avg_fps).as_str());
                 self.instant = Instant::now();
             },
             _ => {}
