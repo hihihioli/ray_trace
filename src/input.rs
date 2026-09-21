@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use winit::dpi::{PhysicalPosition, Pixel};
 use winit::keyboard::PhysicalKey;
 
 pub struct Input {
