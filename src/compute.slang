@@ -17,7 +17,7 @@ ParameterBlock<Constants> constants;
 [shader("compute")]
 [numthreads(8,8)]
 void main(uint3 threadId: SV_DispatchThreadID) {
-    uint scale = 8;
+    uint scale = 1;
 
     var result = textures.result;
     uint2 texture_dimensions;
@@ -50,7 +50,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
         Sphere(0.5,float3(0.25,0,-1),float3(0,1,0)),
     };
 
-    uint samples = 64;
+    uint samples = 100;
     float3 color_sum = 0;
     for (uint i = 0; i < samples; i++) {
         // offset should be between -.5 and .5 for subpixel aa
