@@ -29,6 +29,7 @@ impl GpuState {
         // initialize everything
         let size = window.inner_size();
 
+        println!("{size:?}");
         let instance = Instance::default(); // this interfaces into wgpu. everything stems from here
 
         // surface is created by wgpu using our winit window
