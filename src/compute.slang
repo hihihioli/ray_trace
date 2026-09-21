@@ -17,6 +17,8 @@ ParameterBlock<Constants> constants;
 [shader("compute")]
 [numthreads(8,8)]
 void main(uint3 threadId: SV_DispatchThreadID) {
+    uint scale = 1;
+
     var result = textures.result;
     uint2 texture_dimensions;
     result.GetDimensions(texture_dimensions.x, texture_dimensions.y);
@@ -25,7 +27,6 @@ void main(uint3 threadId: SV_DispatchThreadID) {
         return;
     }
 
-    float2 uv = float2(float(threadId.x) / texture_dimensions.x, float(threadId.y) / texture_dimensions.y);
     float aspect = float(texture_dimensions.x)/float(texture_dimensions.y);
 
     float focal_length = 1;
@@ -33,17 +34,33 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float viewport_width = viewport_height * aspect;
     float3 camera_center = 0;
 
-    float delta_u = viewport_width / float(texture_dimensions.x);
-    float delta_v = viewport_height / float(texture_dimensions.y);
+    float delta_u = viewport_width / float(texture_dimensions.x/scale);
+    float delta_v = viewport_height / float(texture_dimensions.y/scale);
 
-    Ray ray = Ray(camera_center,float3(-viewport_width/2 + (float(threadId.x) + 0.5) * delta_u,
-                                       viewport_height/2 - (float(threadId.y) + 0.5) * delta_v,
+    Ray ray = Ray(camera_center,float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5) * delta_u,
+                                       viewport_height/2 - (float(threadId.y/scale) + 0.5) * delta_v,
                                        -focal_length));
 
-    //float3 color = ray.color();
     uint pixel_index = threadId.x + threadId.y * texture_dimensions.x;
     Random random = Random(pixel_index^hash(constants.uniforms.frame_count));
-    float3 color = float3(random.random(),random.random(),random.random());
+
+    Sphere spheres[] = {
+        Sphere(100000, float3(0,-100000-0.3,0),float3(0,0,1)),
+        Sphere(0.5,float3(-0.25,0,-1),float3(1,0,0)),
+        Sphere(0.5,float3(0.25,0,-1),float3(0,1,0)),
+    };
+
+    uint samples = 100;
+    float3 color_sum = 0;
+    for (uint i = 0; i < samples; i++) {
+        Ray offset_ray = Ray(camera_center,float3(-viewport_width/2 + (float(threadId.x/scale) + random.random()) * delta_u,
+                                                  viewport_height/2 - (float(threadId.y/scale) + random.random()) * delta_v,
+                                                  -focal_length));
+        color_sum += offset_ray.color(spheres);
+    };
+
+    float3 color = color_sum / samples;
+    //float3 color = float3(random.random(),random.random(),random.random());
 
 
     result.Store(threadId.xy,float4(color,1));
@@ -57,12 +74,7 @@ struct Ray {
         return origin + direction * t;
     };
 
-    float3 color(int samples) {
-        Sphere spheres[] = {
-            Sphere(100000, float3(0,-100000-0.3,0),float3(0,0,1)),
-            Sphere(0.5,float3(-0.25,0,-1),float3(1,0,0)),
-            Sphere(0.5,float3(0.25,0,-1),float3(0,1,0)),
-        };
+    float3 color(Sphere spheres[]) {
         Interval t_bounds = Interval(0,500);
         HitRecord hit_record;
         bool hit_anything = false;
@@ -81,7 +93,6 @@ struct Ray {
             return float3(0) * (1-a) + float3(1) * (a);
         }
     }
-
 }
 
 struct Sphere {
