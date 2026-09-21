@@ -48,7 +48,8 @@ impl GpuState {
         let mut config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap(); // get the config
-        config.present_mode = PresentMode::AutoNoVsync;
+        config.present_mode = PresentMode::AutoVsync;
+        println!("{:?}",config.format);
         
         println!("Adapter info {:?}", adapter.get_info());
 
@@ -93,9 +94,9 @@ impl GpuState {
         let view = out_texture.create_view(&Default::default());
 
         self.out_texture = out_texture;
-        self.compute_resources.bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+        self.compute_resources.texture_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Ray Tracing Bind group"),
-            layout: &self.compute_resources.bind_group_layout,
+            layout: &self.compute_resources.texture_bind_group_layout,
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: TextureView(&view),
@@ -150,7 +151,8 @@ impl GpuState {
                 timestamp_writes: None,
             });
             cpass.set_pipeline(&self.compute_resources.pipeline);
-            cpass.set_bind_group(0, &self.compute_resources.bind_group, &[]);
+            cpass.set_bind_group(0, &self.compute_resources.texture_bind_group, &[]);
+            cpass.set_bind_group(1, &self.compute_resources.uniform_bind_group, &[]);
 
             cpass.dispatch_workgroups(
                 self.size.width.div_ceil(8),
@@ -183,6 +185,9 @@ impl GpuState {
         self.queue.submit(Some(encoder.finish()));
         self.window.pre_present_notify();
         self.queue.present(frame);
+
+        self.compute_resources.shader_params.increment_frame_count();
+        self.compute_resources.update_uniform_buffer(&self.queue);
     }
 }
 
