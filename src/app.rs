@@ -37,8 +37,7 @@ impl ApplicationHandler for App {
             // ignore a recreation request
             return;
         }
-        let window_attributes = WindowAttributes::default()
-            .with_title("Wgpu Intro");
+        let window_attributes = WindowAttributes::default().with_title("Wgpu Intro");
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
         let gpu = pollster::block_on(GpuState::new(window));
@@ -70,9 +69,10 @@ impl ApplicationHandler for App {
                     self.avg_fps += frame_time / (self.num as f64 + 1.0);
                     self.num += 1;
                 }
-                gpu.window.set_title(format!("Ray Tracer: {:.4} ms",frame_time).as_str());
+                gpu.window
+                    .set_title(format!("Ray Tracer: {:.4} ms", frame_time).as_str());
                 self.instant = Instant::now();
-            },
+            }
             _ => {}
         }
     }

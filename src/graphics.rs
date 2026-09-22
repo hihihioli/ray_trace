@@ -2,7 +2,7 @@ use crate::blit::BlitResources;
 use crate::compute::ComputeResources;
 use std::sync::Arc;
 use wgpu::BindingResource::TextureView;
-use wgpu::{BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Instance, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -43,26 +43,32 @@ impl GpuState {
             .await
             .unwrap(); // this represents the underlying gpu and driver
         let (device, queue) = adapter
-            .request_device(&DeviceDescriptor::default())
+            .request_device(&DeviceDescriptor {
+                label: None,
+                required_features: Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                required_limits: Default::default(),
+                experimental_features: Default::default(),
+                memory_hints: Default::default(),
+                trace: Default::default(),
+            })
             .await
             .unwrap(); // a connection to the gpu and what we submit commands to
         let mut config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap(); // get the config
         config.present_mode = PresentMode::AutoVsync;
-        println!("{:?}",config.format);
-        
+        println!("{:?}", config.format);
+
         println!("Adapter info {:?}", adapter.get_info());
 
         surface.configure(&device, &config);
 
-        let out_texture = create_output_texture(&device,&size);
+        let out_texture = create_output_texture(&device, &size);
         let texture_view = out_texture.create_view(&Default::default());
 
         let compute_resources = ComputeResources::new(&device, &texture_view);
 
         let blit_resources = BlitResources::new(&device, config.format, &texture_view);
-
 
         Self {
             window,
@@ -91,22 +97,23 @@ impl GpuState {
         self.configure_surface(); //reconfigure the surface with the new dimensions
 
         // Recreate output texture
-        let out_texture = create_output_texture(&self.device,&self.size);
+        let out_texture = create_output_texture(&self.device, &self.size);
         let view = out_texture.create_view(&Default::default());
 
         self.out_texture = out_texture;
-        self.compute_resources.texture_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-            label: Some("Ray Tracing Bind group"),
-            layout: &self.compute_resources.texture_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: TextureView(&view),
-            }],
-        });
-        self.blit_resources.bind_group = self.device.create_bind_group(&BindGroupDescriptor{
+        self.compute_resources.texture_bind_group =
+            self.device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Ray Tracing Bind group"),
+                layout: &self.compute_resources.texture_bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: TextureView(&view),
+                }],
+            });
+        self.blit_resources.bind_group = self.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Blit Bind Group"),
             layout: &self.blit_resources.bind_group_layout,
-            entries: &[BindGroupEntry{
+            entries: &[BindGroupEntry {
                 binding: 0,
                 resource: TextureView(&view),
             }],
@@ -155,17 +162,13 @@ impl GpuState {
             cpass.set_bind_group(0, &self.compute_resources.texture_bind_group, &[]);
             cpass.set_bind_group(1, &self.compute_resources.uniform_bind_group, &[]);
 
-            cpass.dispatch_workgroups(
-                self.size.width.div_ceil(8),
-                self.size.height.div_ceil(8),
-                1
-            );
+            cpass.dispatch_workgroups(self.size.width.div_ceil(8), self.size.height.div_ceil(8), 1);
         }
 
         {
-            let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor{
+            let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Blit Render Pass"),
-                color_attachments: &[Some(RenderPassColorAttachment{
+                color_attachments: &[Some(RenderPassColorAttachment {
                     view: &frame_view,
                     depth_slice: None,
                     resolve_target: None,
@@ -178,7 +181,7 @@ impl GpuState {
             });
 
             rpass.set_pipeline(&self.blit_resources.pipeline);
-            rpass.set_bind_group(0,&self.blit_resources.bind_group, &[]);
+            rpass.set_bind_group(0, &self.blit_resources.bind_group, &[]);
 
             rpass.draw(0..3, 0..1)
         }

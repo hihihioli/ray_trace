@@ -1,7 +1,12 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::BindingResource::TextureView;
-use wgpu::{include_spirv, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, ComputePipeline, ComputePipelineDescriptor, Device, PipelineLayoutDescriptor, ShaderStages, StorageTextureAccess, TextureFormat, TextureViewDimension, BufferBindingType, BufferUsages, Buffer, Queue};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, ComputePipeline,
+    ComputePipelineDescriptor, Device, PipelineLayoutDescriptor, Queue, ShaderStages,
+    StorageTextureAccess, TextureFormat, TextureViewDimension, include_spirv,
+};
 
 pub struct ComputeResources {
     pub pipeline: ComputePipeline,
@@ -12,24 +17,25 @@ pub struct ComputeResources {
     pub uniform_buffer: Buffer,
 }
 
-impl ComputeResources{
+impl ComputeResources {
     pub fn new(device: &Device, texture_view: &wgpu::TextureView) -> Self {
         let shader_params = ShaderParams::new();
-        let compute_shader = device.create_shader_module(include_spirv!("compute.spv"));
+        let compute_shader = device.create_shader_module( include_spirv!("compute.spv"));
 
-        let texture_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Ray Tracing Bind Group Layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::StorageTexture {
-                    access: StorageTextureAccess::WriteOnly,
-                    format: TextureFormat::Rgba16Float,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            }],
-        });
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Ray Tracing Bind Group Layout"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::ReadWrite,
+                        format: TextureFormat::Rgba16Float,
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                }],
+            });
 
         let texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Ray Tracing Bind group"),
@@ -46,19 +52,20 @@ impl ComputeResources{
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
-        let uniform_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Shader Parameters Bind Group Layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Shader Parameters Bind Group Layout"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
 
         let uniform_bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Shader Parameters Bind Group"),
@@ -73,7 +80,8 @@ impl ComputeResources{
             label: Some("Ray Tracing Pipeline Layout"),
             bind_group_layouts: &[
                 Some(&texture_bind_group_layout),
-                Some(&uniform_bind_group_layout)],
+                Some(&uniform_bind_group_layout),
+            ],
             immediate_size: 0,
         });
 
@@ -97,25 +105,28 @@ impl ComputeResources{
     }
 
     pub fn update_uniform_buffer(&mut self, queue: &Queue) {
-        queue.write_buffer(&self.uniform_buffer,0,bytemuck::cast_slice(&[self.shader_params]))
+        queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.shader_params]),
+        )
     }
 }
-
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 pub struct ShaderParams {
     frame_count: u32,
+    accumulated_frames: u32,
 }
 
 impl ShaderParams {
     fn new() -> Self {
-        Self {
-            frame_count: 0,
-        }
+        Self { frame_count: 0, accumulated_frames: 0 }
     }
 
     pub fn increment_frame_count(&mut self) {
         self.frame_count += 1;
+        self.accumulated_frames += 1;
     }
 }

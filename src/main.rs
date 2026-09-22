@@ -1,8 +1,8 @@
 mod app;
+mod blit;
+mod compute;
 mod graphics;
 mod input;
-mod compute;
-mod blit;
 
 use app::App;
 use winit::event_loop::{ControlFlow, EventLoop};

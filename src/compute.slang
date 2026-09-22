@@ -1,6 +1,6 @@
 struct Textures {
     [format("rgba16f")]
-    WTexture2D<float4> result;
+    RWTexture2D<float4> result;
 }
 
 struct Constants {
@@ -9,6 +9,7 @@ struct Constants {
 
 struct Uniforms {
     uint frame_count;
+    uint accumulated_frames;
 }
 
 ParameterBlock<Textures> textures;
@@ -20,6 +21,9 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     uint scale = 1;
 
     var result = textures.result;
+    var frame_count = constants.uniforms.frame_count;
+    var accumulated_frames = constants.uniforms.accumulated_frames;
+
     uint2 texture_dimensions;
     result.GetDimensions(texture_dimensions.x, texture_dimensions.y);
 
@@ -42,7 +46,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
                                        -focal_length));
 
     uint pixel_index = threadId.x/scale + threadId.y/scale * texture_dimensions.x/scale;
-    Random random = Random(pixel_index^hash(constants.uniforms.frame_count));
+    Random random = Random(pixel_index^hash(frame_count));
 
     Sphere spheres[] = {
         Sphere(100000, float3(0,-100000-0.3,0),float3(0,0,1)),
@@ -50,7 +54,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
         Sphere(0.5,float3(0.25,0,-1),float3(0,1,0)),
     };
 
-    uint samples = 100;
+    uint samples = 1;
     float3 color_sum = 0;
     for (uint i = 0; i < samples; i++) {
         // offset should be between -.5 and .5 for subpixel aa
@@ -62,6 +66,8 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     };
 
     float3 color = color_sum / samples;
+    float3 color_accumulated = color / float(accumulated_frames + 1) +
+                               result.Load(threadId.xy).rgb * float(accumulated_frames) / float(accumulated_frames + 1);
 
     //float3 color = float3(random.random(),random.random(),random.random());
 
