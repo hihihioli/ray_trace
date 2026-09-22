@@ -96,6 +96,10 @@ impl GpuState {
 
         self.configure_surface(); //reconfigure the surface with the new dimensions
 
+        // Reset frame accumulation
+        self.compute_resources.shader_params.reset_frame_accumulation();
+        self.compute_resources.update_uniform_buffer(&self.queue);
+        
         // Recreate output texture
         let out_texture = create_output_texture(&self.device, &self.size);
         let view = out_texture.create_view(&Default::default());
@@ -206,7 +210,7 @@ fn create_output_texture(device: &Device, size: &PhysicalSize<u32>) -> Texture {
         mip_level_count: 1,
         sample_count: 1,
         dimension: TextureDimension::D2,
-        format: TextureFormat::Rgba16Float,
+        format: TextureFormat::Rgba32Float,
         usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     })

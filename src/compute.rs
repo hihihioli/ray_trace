@@ -30,7 +30,7 @@ impl ComputeResources {
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::StorageTexture {
                         access: StorageTextureAccess::ReadWrite,
-                        format: TextureFormat::Rgba16Float,
+                        format: TextureFormat::Rgba32Float,
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
@@ -128,5 +128,9 @@ impl ShaderParams {
     pub fn increment_frame_count(&mut self) {
         self.frame_count += 1;
         self.accumulated_frames += 1;
+    }
+
+    pub fn reset_frame_accumulation(&mut self) {
+        self.accumulated_frames = 0;
     }
 }

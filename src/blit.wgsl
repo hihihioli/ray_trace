@@ -16,12 +16,14 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<
 fn fs_main(@builtin(position) position: vec4f) -> @location(0) vec4<f32> {
     let pixel = vec2<i32>(position.xy);
 
-    let hdr = textureLoad(source,pixel, 0).rgb;
+    let texture_sample = textureLoad(source,pixel, 0);
+    let hdr = texture_sample.rgb;
+    let depth = texture_sample.a;
 
     let color = clamp(hdr,vec3f(0),vec3f(1));
     let color_corrected = vec3f(srgb_to_linear(color.r),srgb_to_linear(color.g),srgb_to_linear(color.b));
 
-    return vec4<f32>(color_corrected,1.0);
+    return vec4<f32>(color_corrected,1);
 }
 
 

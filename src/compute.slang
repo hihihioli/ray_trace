@@ -1,5 +1,5 @@
 struct Textures {
-    [format("rgba16f")]
+    [format("rgba32f")]
     RWTexture2D<float4> result;
 }
 
@@ -34,7 +34,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float aspect = float(texture_dimensions.x)/float(texture_dimensions.y);
 
     float focal_length = 1;
-    float viewport_height = 2;
+    float viewport_height = 1.5;
     float viewport_width = viewport_height * aspect;
     float3 camera_center = 0;
 
@@ -50,29 +50,23 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     Sphere spheres[] = {
         Sphere(100000, float3(0,-100000-0.3,0),float3(0,0,1)),
-        Sphere(0.5,float3(-0.25,0,-1),float3(1,0,0)),
-        Sphere(0.5,float3(0.25,0,-1),float3(0,1,0)),
+        Sphere(0.5,float3(-0.25,0,-2),float3(1,0,0)),
+        Sphere(0.5,float3(0.25,0,-2),float3(0,1,0)),
     };
 
-    uint samples = 1;
-    float3 color_sum = 0;
-    for (uint i = 0; i < samples; i++) {
-        // offset should be between -.5 and .5 for subpixel aa
-        float2 offset = float2(random.random()-0.5, random.random()-0.5);
-        Ray offset_ray = Ray(camera_center,float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
-                                                  viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
-                                                  -focal_length));
-        color_sum += offset_ray.color(spheres);
-    };
+    // offset should be between -.5 and .5 for subpixel aa
+    float2 offset = float2(random.random()-0.5, random.random()-0.5);
+    float3 ray_offset_direction =  float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
+                                          viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
+                                          -focal_length);
+    Ray offset_ray = Ray(camera_center,normalize(ray_offset_direction));
+    float4 color = offset_ray.color(spheres);
 
-    float3 color = color_sum / samples;
-    float3 color_accumulated = color / float(accumulated_frames + 1) +
+    float3 color_accumulated = color.rgb / float(accumulated_frames + 1) +
                                result.Load(threadId.xy).rgb * float(accumulated_frames) / float(accumulated_frames + 1);
 
-    //float3 color = float3(random.random(),random.random(),random.random());
 
-
-    result.Store(threadId.xy,float4(color,1));
+    result.Store(threadId.xy,float4(color_accumulated,color.a));
 }
 
 struct Ray {
@@ -83,7 +77,7 @@ struct Ray {
         return origin + direction * t;
     };
 
-    float3 color(Sphere spheres[]) {
+    float4 color(Sphere spheres[]) {
         Interval t_bounds = Interval(0,500);
         HitRecord hit_record;
         bool hit_anything = false;
@@ -95,11 +89,12 @@ struct Ray {
             }
         }
         if (hit_anything) {
-            return 0.5*(hit_record.normal+float3(1));
+            return float4(0.5*(hit_record.normal+float3(1)),hit_record.t);
             //return hit_record.color;
         } else {
             float a = 0.5 * (normalize(this.direction).y + 1);
-            return float3(0) * (1-a) + float3(1) * (a);
+            float3 color = float3(0) * (1-a) + float3(1) * (a);
+            return float4(color,-1);
         }
     }
 }
