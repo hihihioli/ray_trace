@@ -50,8 +50,8 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     Random random = Random(pixel_index^hash(frame_count));
 
     Sphere spheres[] = {
-        Sphere(0.5, float3(0,0,-1),float3(0,0,1)),
-        Sphere(100,float3(0,-100.5,-1),float3(1,1,1)),
+        Sphere(0.5, float3(0,0.5,-1),float3(0,0,1)*0.5),
+        Sphere(100,float3(0,-100.5,-1),float3(1)*0.5),
     };
 
     // offset should be between -.5 and .5 for subpixel aa
@@ -97,7 +97,7 @@ struct Ray {
                     color.a = hit_record.t;
                 }
 
-                color *= float4(float3(0.1),1);
+                color *= float4(float3(0.5),1);
                 this.origin = hit_record.position;
                 this.direction = normalize(hit_record.normal + random_unit_vector(random));
             } else {
