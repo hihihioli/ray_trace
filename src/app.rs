@@ -8,6 +8,8 @@ use winit::{
     event_loop::ActiveEventLoop,
     window::{WindowAttributes, WindowId},
 };
+use winit::monitor::VideoModeHandle;
+use winit::window::Fullscreen;
 
 pub struct App {
     // This is controlled by winit
@@ -37,7 +39,8 @@ impl ApplicationHandler for App {
             // ignore a recreation request
             return;
         }
-        let window_attributes = WindowAttributes::default().with_title("Wgpu Intro");
+        let window_attributes = WindowAttributes::default().with_title("Wgpu Intro")
+            .with_fullscreen(Some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
         let gpu = pollster::block_on(GpuState::new(window));

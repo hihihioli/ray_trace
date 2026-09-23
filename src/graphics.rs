@@ -56,7 +56,7 @@ impl GpuState {
         let mut config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap(); // get the config
-        config.present_mode = PresentMode::AutoVsync;
+        config.present_mode = PresentMode::AutoNoVsync;
         println!("{:?}", config.format);
 
         println!("Adapter info {:?}", adapter.get_info());
@@ -99,7 +99,7 @@ impl GpuState {
         // Reset frame accumulation
         self.compute_resources.shader_params.reset_frame_accumulation();
         self.compute_resources.update_uniform_buffer(&self.queue);
-        
+
         // Recreate output texture
         let out_texture = create_output_texture(&self.device, &self.size);
         let view = out_texture.create_view(&Default::default());

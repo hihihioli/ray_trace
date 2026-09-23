@@ -33,10 +33,11 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     float aspect = float(texture_dimensions.x)/float(texture_dimensions.y);
 
-    float focal_length = 1;
+    float focal_length = 0.7;
     float viewport_height = 1.5;
     float viewport_width = viewport_height * aspect;
     float3 camera_center = 0;
+    uint max_bounces = 100;
 
     float delta_u = viewport_width / float(texture_dimensions.x/scale);
     float delta_v = viewport_height / float(texture_dimensions.y/scale);
@@ -49,9 +50,8 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     Random random = Random(pixel_index^hash(frame_count));
 
     Sphere spheres[] = {
-        Sphere(100000, float3(0,-100000-0.3,0),float3(0,0,1)),
-        Sphere(0.5,float3(-0.25,0,-2),float3(1,0,0)),
-        Sphere(0.5,float3(0.25,0,-2),float3(0,1,0)),
+        Sphere(0.5, float3(0,0,-1),float3(0,0,1)),
+        Sphere(100,float3(0,-100.5,-1),float3(1,1,1)),
     };
 
     // offset should be between -.5 and .5 for subpixel aa
@@ -60,7 +60,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
                                           viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
                                           -focal_length);
     Ray offset_ray = Ray(camera_center,normalize(ray_offset_direction));
-    float4 color = offset_ray.color(spheres);
+    float4 color = offset_ray.color(spheres,max_bounces,random);
 
     float3 color_accumulated = color.rgb / float(accumulated_frames + 1) +
                                result.Load(threadId.xy).rgb * float(accumulated_frames) / float(accumulated_frames + 1);
@@ -77,24 +77,55 @@ struct Ray {
         return origin + direction * t;
     };
 
-    float4 color(Sphere spheres[]) {
-        Interval t_bounds = Interval(0,500);
+    [mutating]
+    float4 color(Sphere spheres[],uint max_bounces, Random random) {
+        float4 color = float4(1,1,1,-1);
         HitRecord hit_record;
-        bool hit_anything = false;
-        [unroll]
-        for (int i = 0; i < spheres.getCount(); i++) {
-            if (spheres[i].hit(this,t_bounds,hit_record)) {
-                hit_anything = true;
-                t_bounds = Interval(t_bounds.min,hit_record.t);
+        for (uint i = 0; i < max_bounces; i++) {
+            Interval t_bounds = Interval(0.001,500);
+            bool hit_anything = false;
+
+            [unroll]
+            for (int s = 0; s < spheres.getCount(); s++) {
+                if (spheres[s].hit(this,t_bounds,hit_record)) {
+                    hit_anything = true;
+                    t_bounds = Interval(t_bounds.min,hit_record.t);
+                }
+            }
+            if (hit_anything) {
+                if (color.a < 0) {
+                    color.a = hit_record.t;
+                }
+
+                color *= float4(float3(0.1),1);
+                this.origin = hit_record.position;
+                this.direction = normalize(hit_record.normal + random_unit_vector(random));
+            } else {
+                color *= float4(this.sample_environment(),1);
+                return color;
             }
         }
-        if (hit_anything) {
-            return float4(0.5*(hit_record.normal+float3(1)),hit_record.t);
-            //return hit_record.color;
+        return float4(this.sample_environment(),-1);
+    }
+
+    float3 sample_environment() {
+        if (dot(this.direction,normalize(float3(-5,6,0))) > 0.999) {
+            return float3(1000);
+        }
+
+        float a = 0.5 * (this.direction.y + 1);
+        return (1.0-a)*float3(1.0, 1.0, 1.0) + a*float3(0.5, 0.7, 1.0);
+
+
+
+        if (this.direction.y > 0) {
+            float up = dot(float3(0,1,0),this.direction);
+            float3 sky = up * float3(135,206,235)/256 + (1-up) * float3(0.4);
+            return sky;
         } else {
-            float a = 0.5 * (normalize(this.direction).y + 1);
-            float3 color = float3(0) * (1-a) + float3(1) * (a);
-            return float4(color,-1);
+            float down = dot(float3(0,-1,0),this.direction);
+            float3 sky = down * float3(0) + (1-down) * float3(0.4);
+            return sky;
         }
     }
 }
@@ -179,4 +210,14 @@ uint hash(uint seed) {
     result = (result >> 22) ^ result;
 
     return result; // 32 bit integer total possible values}
+}
+
+float3 random_unit_vector(inout Random random) {
+    while (true) {
+        float3 rand_vec = float3(2*random.random()-1,2*random.random()-1,2*random.random()-1);
+        float square_len = dot(rand_vec,rand_vec);
+        if (float.minValue < square_len <= 1) {
+            return normalize(rand_vec);
+        }
+    }
 }
