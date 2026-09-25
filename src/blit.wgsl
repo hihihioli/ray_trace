@@ -21,9 +21,11 @@ fn fs_main(@builtin(position) position: vec4f) -> @location(0) vec4<f32> {
     let depth = texture_sample.a;
 
     let color = clamp(hdr,vec3f(0),vec3f(1));
-    let color_corrected = vec3f(srgb_to_linear(color.r),srgb_to_linear(color.g),srgb_to_linear(color.b));
+    //let color_corrected = vec3f(srgb_to_linear(color.r),srgb_to_linear(color.g),srgb_to_linear(color.b));
 
     return vec4<f32>(color,1.0);
+
+    //if depth > 0 {return vec4f(vec3f(1/(depth+1)),1);} else {return vec4f(vec3f(0),1);}
 
 }
 

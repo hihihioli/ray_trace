@@ -33,11 +33,11 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     float aspect = float(texture_dimensions.x)/float(texture_dimensions.y);
 
-    float focal_length = 0.7;
-    float viewport_height = 1.5;
+    float focal_length = 0.024;
+    float viewport_height = 0.024;
     float viewport_width = viewport_height * aspect;
     float3 camera_center = 0;
-    uint max_bounces = 100;
+    uint max_bounces = 50;
 
     float delta_u = viewport_width / float(texture_dimensions.x/scale);
     float delta_v = viewport_height / float(texture_dimensions.y/scale);
@@ -50,8 +50,8 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     Random random = Random(pixel_index^hash(frame_count));
 
     Sphere spheres[] = {
-        Sphere(0.5, float3(0,0.5,-1),float3(0,0,1)*0.5),
-        Sphere(100,float3(0,-100.5,-1),float3(1)*0.5),
+        Sphere(0.5, float3(0,0,-2),float3(48,96,191)/256),
+        Sphere(100,float3(0,-100.5,-2),float3(0.3,.6,0.4)*0.5),
     };
 
     // offset should be between -.5 and .5 for subpixel aa
@@ -97,7 +97,7 @@ struct Ray {
                     color.a = hit_record.t;
                 }
 
-                color *= float4(float3(0.5),1);
+                color *= float4(hit_record.color,1);
                 this.origin = hit_record.position;
                 this.direction = normalize(hit_record.normal + random_unit_vector(random));
             } else {
@@ -105,12 +105,12 @@ struct Ray {
                 return color;
             }
         }
-        return float4(this.sample_environment(),-1);
+        return float4(float3(0),color.a);
     }
 
     float3 sample_environment() {
-        if (dot(this.direction,normalize(float3(-5,6,0))) > 0.999) {
-            return float3(1000);
+        if (dot(this.direction,normalize(float3(0,2,-1.5))) > 0.8) {
+            return float3(5,5,4);
         }
 
         float a = 0.5 * (this.direction.y + 1);
