@@ -37,7 +37,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float viewport_height = 0.024;
     float viewport_width = viewport_height * aspect;
     float3 camera_center = 0;
-    uint max_bounces = 50;
+    uint max_bounces = 200;
 
     float delta_u = viewport_width / float(texture_dimensions.x/scale);
     float delta_v = viewport_height / float(texture_dimensions.y/scale);
@@ -47,7 +47,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
                                        -focal_length));
 
     uint pixel_index = threadId.x/scale + threadId.y/scale * texture_dimensions.x/scale;
-    Random random = Random(pixel_index^hash(frame_count));
+    Random random = Random(pixel_index^Random.hash(frame_count));
 
     Material material1 = Material(float3(48,96,191)/256,0,0);
     Material material2 = Material(float3(0.3,0.6,0.4)*0.5,0,0);
@@ -84,7 +84,7 @@ struct Ray {
     };
 
     [mutating]
-    float4 color(Sphere spheres[],uint max_bounces, Random random) {
+    float4 color(Sphere spheres[],uint max_bounces, inout Random random) {
         float depth = -1;
         float3 incoming_light = 0;
         float3 color = 1;
@@ -109,7 +109,7 @@ struct Ray {
                 incoming_light += emitted_light * color;
                 color *= hit_record.material.color;
                 this.origin = hit_record.position;
-                this.direction = normalize(hit_record.normal + random_unit_vector(random));
+                this.direction = normalize(hit_record.normal + random.random_unit_vector());
             } else {
                 break;
             }
@@ -211,24 +211,25 @@ struct Random {
 
         return float(result)/(4294967296.0); // 32 bit integer total possible values
     }
-}
 
-uint hash(uint seed) {
-    uint seed1 = (seed * uint(747796405)) + uint(2891336453);
-    uint result = ((seed1 >> ((seed1 >> 28) + 4)) ^ seed1) * 277803737;
-    result = (result >> 22) ^ result;
-
-    return result; // 32 bit integer total possible values}
-}
-
-float3 random_unit_vector(inout Random random) {
-    while (true) {
-        float3 rand_vec = float3(2*random.random()-1,2*random.random()-1,2*random.random()-1);
-        float square_len = dot(rand_vec,rand_vec);
-        if (square_len > 1e-8 && square_len <= 1.0) {
-            return normalize(rand_vec);
-        }
+    [mutating] float random_normal_dist() {
+        float theta = 2 * float.getPi() * this.random();
+        float rho = sqrt(-2 * log(this.random()));
+        return rho * cos(theta);
     }
+
+    [mutating] float3 random_unit_vector() {
+        return normalize(float3(this.random_normal_dist(),this.random_normal_dist(),this.random_normal_dist()));
+    }
+
+    static uint hash(uint seed) {
+        uint seed1 = (seed * uint(747796405)) + uint(2891336453);
+        uint result = ((seed1 >> ((seed1 >> 28) + 4)) ^ seed1) * 277803737;
+        result = (result >> 22) ^ result;
+
+        return result; // 32 bit integer total possible values}
+    }
+
 }
 
 struct Material {
