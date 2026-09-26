@@ -49,9 +49,15 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     uint pixel_index = threadId.x/scale + threadId.y/scale * texture_dimensions.x/scale;
     Random random = Random(pixel_index^hash(frame_count));
 
+    Material material1 = Material(float3(48,96,191)/256,0,0);
+    Material material2 = Material(float3(0.3,0.6,0.4)*0.5,0,0);
+    Material light = Material(float3(0,0,0),1,140);
+
+
     Sphere spheres[] = {
-        Sphere(0.5, float3(0,0,-2),float3(48,96,191)/256),
-        Sphere(100,float3(0,-100.5,-2),float3(0.3,.6,0.4)*0.5),
+        Sphere(0.5, float3(0,0,-2),material1),
+        Sphere(100,float3(0,-100.5,-2),material2),
+        Sphere(0.1, float3(-0.6,0.6,-1.5),light),
     };
 
     // offset should be between -.5 and .5 for subpixel aa
@@ -79,8 +85,11 @@ struct Ray {
 
     [mutating]
     float4 color(Sphere spheres[],uint max_bounces, Random random) {
-        float4 color = float4(1,1,1,-1);
+        float depth = -1;
+        float3 incoming_light = 0;
+        float3 color = 1;
         HitRecord hit_record;
+
         for (uint i = 0; i < max_bounces; i++) {
             Interval t_bounds = Interval(0.001,500);
             bool hit_anything = false;
@@ -93,19 +102,19 @@ struct Ray {
                 }
             }
             if (hit_anything) {
-                if (color.a < 0) {
-                    color.a = hit_record.t;
+                if (depth < 0) {
+                    depth = hit_record.t;
                 }
-
-                color *= float4(hit_record.color,1);
+                float3 emitted_light = hit_record.material.emission_color * hit_record.material.emission_strength;
+                incoming_light += emitted_light * color;
+                color *= hit_record.material.color;
                 this.origin = hit_record.position;
                 this.direction = normalize(hit_record.normal + random_unit_vector(random));
             } else {
-                color *= float4(this.sample_environment(),1);
-                return color;
+                break;
             }
         }
-        return float4(float3(0),color.a);
+        return float4(incoming_light,depth);
     }
 
     float3 sample_environment() {
@@ -133,7 +142,7 @@ struct Ray {
 struct Sphere {
     float radius;
     float3 center;
-    float3 color;
+    Material material;
 
     bool hit(Ray ray, Interval t_bounds, out HitRecord hit) {
         float3 oc = this.center - ray.origin;
@@ -159,7 +168,7 @@ struct Sphere {
         hit.t = t;
         hit.position = ray.position(t);
         hit.normal = (hit.position - this.center) / this.radius;
-        hit.color = this.color;
+        hit.material = this.material;
 
         return true;
     }
@@ -168,7 +177,7 @@ struct HitRecord {
     float3 position;
     float t;
     float3 normal;
-    float3 color;
+    Material material;
 }
 
 struct Interval {
@@ -216,8 +225,14 @@ float3 random_unit_vector(inout Random random) {
     while (true) {
         float3 rand_vec = float3(2*random.random()-1,2*random.random()-1,2*random.random()-1);
         float square_len = dot(rand_vec,rand_vec);
-        if (float.minValue < square_len <= 1) {
+        if (square_len > 1e-8 && square_len <= 1.0) {
             return normalize(rand_vec);
         }
     }
+}
+
+struct Material {
+    float3 color;
+    float3 emission_color;
+    float emission_strength;
 }
