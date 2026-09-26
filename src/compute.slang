@@ -51,13 +51,18 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     Material material1 = Material(float3(48,96,191)/256,0,0);
     Material material2 = Material(float3(0.3,0.6,0.4)*0.5,0,0);
-    Material light = Material(float3(0,0,0),1,140);
+    Material light = Material(float3(1,0,0),float3(1,1,0.8),10);
 
 
     Sphere spheres[] = {
         Sphere(0.5, float3(0,0,-2),material1),
         Sphere(100,float3(0,-100.5,-2),material2),
-        Sphere(0.1, float3(-0.6,0.6,-1.5),light),
+        Sphere(0.5, float3(-1,1,-1),light),
+        Sphere(0.5, float3(-1,1,-4),light),
+        Sphere(0.5, float3(1,1,-1),light),
+        Sphere(0.5, float3(1,1,-4),light),
+
+
     };
 
     // offset should be between -.5 and .5 for subpixel aa
