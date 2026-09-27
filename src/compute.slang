@@ -3,17 +3,20 @@ struct Textures {
     RWTexture2D<float4> result;
 }
 
-struct Constants {
+struct Scene {
     ConstantBuffer<Uniforms> uniforms;
+    StructuredBuffer<Sphere> spheres;
+    StructuredBuffer<Material> materials;
 }
 
 struct Uniforms {
     uint frame_count;
     uint accumulated_frames;
+    uint num_spheres;
 }
 
 ParameterBlock<Textures> textures;
-ParameterBlock<Constants> constants;
+ParameterBlock<Scene> scene;
 
 [shader("compute")]
 [numthreads(8,8)]
@@ -21,8 +24,8 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     uint scale = 1;
 
     var result = textures.result;
-    var frame_count = constants.uniforms.frame_count;
-    var accumulated_frames = constants.uniforms.accumulated_frames;
+    var frame_count = scene.uniforms.frame_count;
+    var accumulated_frames = scene.uniforms.accumulated_frames;
 
     uint2 texture_dimensions;
     result.GetDimensions(texture_dimensions.x, texture_dimensions.y);
@@ -37,7 +40,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float viewport_height = 0.024;
     float viewport_width = viewport_height * aspect;
     float3 camera_center = 0;
-    uint max_bounces = 200;
+    uint max_bounces = 32;
 
     float delta_u = viewport_width / float(texture_dimensions.x/scale);
     float delta_v = viewport_height / float(texture_dimensions.y/scale);
@@ -49,21 +52,6 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     uint pixel_index = threadId.x/scale + threadId.y/scale * texture_dimensions.x/scale;
     Random random = Random(pixel_index^Random.hash(frame_count));
 
-    Material material1 = Material(float3(48,96,191)/256,0,0);
-    Material material2 = Material(float3(0.3,0.6,0.4)*0.5,0,0);
-    Material light = Material(float3(1,0,0),float3(1,1,0.8),10);
-
-
-    Sphere spheres[] = {
-        Sphere(0.5, float3(0,0,-2),material1),
-        Sphere(100,float3(0,-100.5,-2),material2),
-        Sphere(0.5, float3(-1,1,-1),light),
-        Sphere(0.5, float3(-1,1,-4),light),
-        Sphere(0.5, float3(1,1,-1),light),
-        Sphere(0.5, float3(1,1,-4),light),
-
-
-    };
 
     // offset should be between -.5 and .5 for subpixel aa
     float2 offset = float2(random.random()-0.5, random.random()-0.5);
@@ -71,10 +59,11 @@ void main(uint3 threadId: SV_DispatchThreadID) {
                                           viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
                                           -focal_length);
     Ray offset_ray = Ray(camera_center,normalize(ray_offset_direction));
-    float4 color = offset_ray.color(spheres,max_bounces,random);
+    float4 color = offset_ray.color(max_bounces,random);
 
-    float3 color_accumulated = color.rgb / float(accumulated_frames + 1) +
-                               result.Load(threadId.xy).rgb * float(accumulated_frames) / float(accumulated_frames + 1);
+    float3 old_color = result.Load(threadId.xy).rgb;
+    float weight = 1/float(accumulated_frames+1);
+    float3 color_accumulated = fma(color.rgb - old_color,weight,old_color);
 
 
     result.Store(threadId.xy,float4(color_accumulated,color.a));
@@ -89,32 +78,52 @@ struct Ray {
     };
 
     [mutating]
-    float4 color(Sphere spheres[],uint max_bounces, inout Random random) {
+    float4 color(uint max_bounces, inout Random random) {
         float depth = -1;
         float3 incoming_light = 0;
         float3 color = 1;
-        HitRecord hit_record;
+        float t;
+        Sphere hit_sphere;
+        int sphere_index;
+        float3 normal;
+        float3 hit_position;
+        float3 emitted_light;
+        float3 diffuse_dir;
+        float3 specular_dir;
+        float temp_t;
+        Material material;
 
         for (uint i = 0; i < max_bounces; i++) {
             Interval t_bounds = Interval(0.001,500);
-            bool hit_anything = false;
+            sphere_index = -1;
 
-            [unroll]
-            for (int s = 0; s < spheres.getCount(); s++) {
-                if (spheres[s].hit(this,t_bounds,hit_record)) {
-                    hit_anything = true;
-                    t_bounds = Interval(t_bounds.min,hit_record.t);
+            for (int s = 0; s < scene.uniforms.num_spheres; s++) {
+                temp_t = scene.spheres[s].hit(this,t_bounds);
+                if (temp_t > 0) {
+                    t = temp_t;
+                    sphere_index = s;
+                    t_bounds.max = t;
                 }
             }
-            if (hit_anything) {
+            if (sphere_index >= 0) {
                 if (depth < 0) {
-                    depth = hit_record.t;
+                    depth = t;
                 }
-                float3 emitted_light = hit_record.material.emission_color * hit_record.material.emission_strength;
+                hit_sphere = scene.spheres[sphere_index];
+                material = scene.materials[hit_sphere.material_index];
+
+                hit_position = this.position(t);
+                normal = (hit_position - hit_sphere.center) / hit_sphere.radius;
+
+                emitted_light = material.emission_color * material.emission_strength;
                 incoming_light += emitted_light * color;
-                color *= hit_record.material.color;
-                this.origin = hit_record.position;
-                this.direction = normalize(hit_record.normal + random.random_unit_vector());
+
+                color *= material.color;
+                this.origin = hit_position;
+
+                diffuse_dir = normalize(normal + random.random_unit_vector());
+                specular_dir = this.direction - 2 * dot(this.direction,normal) * normal;
+                this.direction = normalize(lerp(diffuse_dir,specular_dir,material.smoothness));
             } else {
                 break;
             }
@@ -145,44 +154,32 @@ struct Ray {
 }
 
 struct Sphere {
-    float radius;
     float3 center;
-    Material material;
+    float radius;
+    uint material_index;
 
-    bool hit(Ray ray, Interval t_bounds, out HitRecord hit) {
+    float hit(Ray ray, Interval t_bounds) {
         float3 oc = this.center - ray.origin;
 
-        float a = dot(ray.direction,ray.direction);
         float h = dot(ray.direction,oc);
         float c = dot(oc,oc) - this.radius * this.radius;
-        float square_discriminant = h*h - a*c;
+        float square_discriminant = h*h - c;
 
         if (square_discriminant < 0) {
-            return false;
+            return -1;
         }
 
         float discriminant = sqrt(square_discriminant);
 
-        float t = (h - discriminant) / a; //check close one first
+        float t = (h - discriminant); //check close one first
         if (!t_bounds.surrounds(t)) {
-            t = (h + discriminant) / a; //check farther one next
+            t = (h + discriminant); //check farther one next
             if (!t_bounds.surrounds(t)) {
-                return false;
+                return -1;
             }
         }
-        hit.t = t;
-        hit.position = ray.position(t);
-        hit.normal = (hit.position - this.center) / this.radius;
-        hit.material = this.material;
-
-        return true;
+        return t;
     }
-}
-struct HitRecord {
-    float3 position;
-    float t;
-    float3 normal;
-    Material material;
 }
 
 struct Interval {
@@ -217,14 +214,18 @@ struct Random {
         return float(result)/(4294967296.0); // 32 bit integer total possible values
     }
 
-    [mutating] float random_normal_dist() {
-        float theta = 2 * float.getPi() * this.random();
-        float rho = sqrt(-2 * log(this.random()));
-        return rho * cos(theta);
-    }
+    [mutating]
+    float3 random_unit_vector() {
+        float z = 2.0 * random() - 1.0;
+        float a = 2.0 * float.getPi() * random();
 
-    [mutating] float3 random_unit_vector() {
-        return normalize(float3(this.random_normal_dist(),this.random_normal_dist(),this.random_normal_dist()));
+        float r = sqrt(max(0.0, 1.0 - z * z));
+
+        return float3(
+            r * cos(a),
+            r * sin(a),
+            z
+        );
     }
 
     static uint hash(uint seed) {
@@ -239,6 +240,7 @@ struct Random {
 
 struct Material {
     float3 color;
-    float3 emission_color;
     float emission_strength;
+    float3 emission_color;
+    float smoothness;
 }

@@ -1,8 +1,16 @@
 use crate::blit::BlitResources;
 use crate::compute::ComputeResources;
+use crate::scene::Scene;
 use std::sync::Arc;
 use wgpu::BindingResource::TextureView;
-use wgpu::{BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
+use wgpu::{
+    BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor,
+    CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
+    Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureViewDescriptor,
+};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -22,6 +30,8 @@ pub struct GpuState {
     out_texture: Texture,
     compute_resources: ComputeResources,
     blit_resources: BlitResources,
+
+    scene: Scene,
 }
 
 impl GpuState {
@@ -66,7 +76,8 @@ impl GpuState {
         let out_texture = create_output_texture(&device, &size);
         let texture_view = out_texture.create_view(&Default::default());
 
-        let compute_resources = ComputeResources::new(&device, &texture_view);
+        let scene = Scene::new(&device);
+        let compute_resources = ComputeResources::new(&device, &texture_view, &scene);
 
         let blit_resources = BlitResources::new(&device, config.format, &texture_view);
 
@@ -81,6 +92,7 @@ impl GpuState {
             out_texture,
             compute_resources,
             blit_resources,
+            scene,
         }
     }
 
@@ -97,7 +109,9 @@ impl GpuState {
         self.configure_surface(); //reconfigure the surface with the new dimensions
 
         // Reset frame accumulation
-        self.compute_resources.shader_params.reset_frame_accumulation();
+        self.compute_resources
+            .shader_params
+            .reset_frame_accumulation();
         self.compute_resources.update_uniform_buffer(&self.queue);
 
         // Recreate output texture

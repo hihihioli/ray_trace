@@ -3,6 +3,7 @@ mod blit;
 mod compute;
 mod graphics;
 mod input;
+mod scene;
 
 use app::App;
 use winit::event_loop::{ControlFlow, EventLoop};
