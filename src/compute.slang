@@ -125,6 +125,7 @@ struct Ray {
                 specular_dir = this.direction - 2 * dot(this.direction,normal) * normal;
                 this.direction = normalize(lerp(diffuse_dir,specular_dir,material.smoothness));
             } else {
+                incoming_light += this.sample_environment() * color;
                 break;
             }
         }
@@ -132,9 +133,10 @@ struct Ray {
     }
 
     float3 sample_environment() {
-        if (dot(this.direction,normalize(float3(0,2,-1.5))) > 0.8) {
-            return float3(5,5,4);
-        }
+        return 0;
+        //if (dot(this.direction,normalize(float3(0,2,-1.5))) > 0.8) {
+        //    return float3(5,5,4);
+        //}
 
         float a = 0.5 * (this.direction.y + 1);
         return (1.0-a)*float3(1.0, 1.0, 1.0) + a*float3(0.5, 0.7, 1.0);

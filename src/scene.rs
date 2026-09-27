@@ -61,13 +61,19 @@ impl Scene {
                 material_index: 3,
                 _padding: [0; 3],
             },
+            SphereGpu {
+                radius: 0.2,
+                center: [-0.8,-0.4,-1.3],
+                material_index: 3,
+                _padding: [0;3],
+            }
         ];
 
         let materials = vec![MaterialGpu {
             color: [0.7, 0.7, 0.7],
             emission_strength: 0.0,
             emission_color: [0., 0., 0.],
-            smoothness: 0.9,
+            smoothness: 0.4,
         }, MaterialGpu {
             color: [0.15, 0.3, 0.2],
             emission_strength: 0.0,
@@ -80,7 +86,7 @@ impl Scene {
             smoothness: 0.2,
         }, MaterialGpu {
             color: [0.0, 0.0, 0.0],
-            emission_strength: 10.0,
+            emission_strength: 5.0,
             emission_color: [1., 1., 1.],
             smoothness: 0.0,
         }];
