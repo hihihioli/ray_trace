@@ -1,6 +1,8 @@
 struct Textures {
     [format("rgba32f")]
     RWTexture2D<float4> result;
+    Texture2D<float4> environment;
+    SamplerState sampler;
 }
 
 struct Scene {
@@ -13,6 +15,9 @@ struct Uniforms {
     uint frame_count;
     uint accumulated_frames;
     uint num_spheres;
+    float focal_length;
+    float3 camera_center;
+    column_major float3x3 rotation_matrix;
 }
 
 ParameterBlock<Textures> textures;
@@ -36,18 +41,13 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     float aspect = float(texture_dimensions.x)/float(texture_dimensions.y);
 
-    float focal_length = 0.024;
     float viewport_height = 0.024;
     float viewport_width = viewport_height * aspect;
-    float3 camera_center = 0;
     uint max_bounces = 32;
 
     float delta_u = viewport_width / float(texture_dimensions.x/scale);
     float delta_v = viewport_height / float(texture_dimensions.y/scale);
 
-    Ray ray = Ray(camera_center,float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5) * delta_u,
-                                       viewport_height/2 - (float(threadId.y/scale) + 0.5) * delta_v,
-                                       -focal_length));
 
     uint pixel_index = threadId.x/scale + threadId.y/scale * texture_dimensions.x/scale;
     Random random = Random(pixel_index^Random.hash(frame_count));
@@ -57,8 +57,8 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float2 offset = float2(random.random()-0.5, random.random()-0.5);
     float3 ray_offset_direction =  float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
                                           viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
-                                          -focal_length);
-    Ray offset_ray = Ray(camera_center,normalize(ray_offset_direction));
+                                          -scene.uniforms.focal_length);
+    Ray offset_ray = Ray(scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_offset_direction)));
     float4 color = offset_ray.color(max_bounces,random);
 
     float3 old_color = result.Load(threadId.xy).rgb;
@@ -94,7 +94,7 @@ struct Ray {
         Material material;
 
         for (uint i = 0; i < max_bounces; i++) {
-            Interval t_bounds = Interval(0.001,500);
+            Interval t_bounds = Interval(0.000001,5000);
             sphere_index = -1;
 
             for (int s = 0; s < scene.uniforms.num_spheres; s++) {
@@ -115,11 +115,15 @@ struct Ray {
                 hit_position = this.position(t);
                 normal = (hit_position - hit_sphere.center) / hit_sphere.radius;
 
+                if (dot(this.direction,normal) >= 0) {
+                    normal = normal * -1.0;
+                }
+
                 emitted_light = material.emission_color * material.emission_strength;
                 incoming_light += emitted_light * color;
 
                 color *= material.color;
-                this.origin = hit_position;
+                this.origin = hit_position + normal * 1e-3;
 
                 diffuse_dir = normalize(normal + random.random_unit_vector());
                 specular_dir = this.direction - 2 * dot(this.direction,normal) * normal;
@@ -133,25 +137,11 @@ struct Ray {
     }
 
     float3 sample_environment() {
-        return 0;
-        //if (dot(this.direction,normalize(float3(0,2,-1.5))) > 0.8) {
-        //    return float3(5,5,4);
-        //}
+        float yaw = atan2(this.direction.x, -this.direction.z);
+        float pitch = acos(this.direction.y);
 
-        float a = 0.5 * (this.direction.y + 1);
-        return (1.0-a)*float3(1.0, 1.0, 1.0) + a*float3(0.5, 0.7, 1.0);
-
-
-
-        if (this.direction.y > 0) {
-            float up = dot(float3(0,1,0),this.direction);
-            float3 sky = up * float3(135,206,235)/256 + (1-up) * float3(0.4);
-            return sky;
-        } else {
-            float down = dot(float3(0,-1,0),this.direction);
-            float3 sky = down * float3(0) + (1-down) * float3(0.4);
-            return sky;
-        }
+        float2 location = float2(yaw / (2 * float.getPi()) + 0.5 + 0.075, pitch/float.getPi());
+        return textures.environment.SampleLevel(textures.sampler, location, 0.0).rgb;
     }
 }
 

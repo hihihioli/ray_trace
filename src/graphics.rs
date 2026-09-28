@@ -1,8 +1,11 @@
 use crate::blit::BlitResources;
+use crate::cam::Camera;
 use crate::compute::ComputeResources;
+use crate::environment::Environment;
 use crate::scene::Scene;
+use std::path::Path;
 use std::sync::Arc;
-use wgpu::BindingResource::TextureView;
+use wgpu::BindingResource::{Sampler, TextureView};
 use wgpu::{
     BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor,
     CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
@@ -32,6 +35,9 @@ pub struct GpuState {
     blit_resources: BlitResources,
 
     scene: Scene,
+    environment: Environment,
+
+    pub camera: Camera,
 }
 
 impl GpuState {
@@ -52,11 +58,14 @@ impl GpuState {
             })
             .await
             .unwrap(); // this represents the underlying gpu and driver
+        let mut limits = adapter.limits();
+        limits.max_texture_dimension_2d = 16384;
+
         let (device, queue) = adapter
             .request_device(&DeviceDescriptor {
                 label: None,
                 required_features: Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
-                required_limits: Default::default(),
+                required_limits: limits,
                 experimental_features: Default::default(),
                 memory_hints: Default::default(),
                 trace: Default::default(),
@@ -76,10 +85,19 @@ impl GpuState {
         let out_texture = create_output_texture(&device, &size);
         let texture_view = out_texture.create_view(&Default::default());
 
+        let environment_bin = Path::new("src/environment.bin");
+        let environment_path = Path::new("src/environment.exr");
+
+        let environment =
+            Environment::new(&device, &queue, environment_path, environment_bin.into());
+
         let scene = Scene::new(&device);
-        let compute_resources = ComputeResources::new(&device, &texture_view, &scene);
+
+        let camera = Camera::new();
+        let compute_resources = ComputeResources::new(&device, &texture_view, &scene, &environment, &camera);
 
         let blit_resources = BlitResources::new(&device, config.format, &texture_view);
+        
 
         Self {
             window,
@@ -93,6 +111,8 @@ impl GpuState {
             compute_resources,
             blit_resources,
             scene,
+            environment,
+            camera,
         }
     }
 
@@ -123,10 +143,20 @@ impl GpuState {
             self.device.create_bind_group(&BindGroupDescriptor {
                 label: Some("Ray Tracing Bind group"),
                 layout: &self.compute_resources.texture_bind_group_layout,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: TextureView(&view),
-                }],
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: TextureView(&view),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: TextureView(&self.environment.texture_view),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: Sampler(&self.environment.sampler),
+                    },
+                ],
             });
         self.blit_resources.bind_group = self.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Blit Bind Group"),
@@ -140,7 +170,16 @@ impl GpuState {
         self.window.request_redraw();
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, changed: bool) {
+        if changed {
+            self.compute_resources
+                .shader_params.update_cam(&self.camera);
+            self.compute_resources.shader_params.reset_frame_accumulation();
+        }
+        self
+            .compute_resources
+            .update_uniform_buffer(&self.queue);
+
         let frame = match self.surface.get_current_texture() {
             Success(frame) => frame,      //the frame
             Timeout | Occluded => return, // try again later
@@ -209,7 +248,6 @@ impl GpuState {
         self.queue.present(frame);
 
         self.compute_resources.shader_params.increment_frame_count();
-        self.compute_resources.update_uniform_buffer(&self.queue);
     }
 }
 

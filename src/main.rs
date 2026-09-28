@@ -1,6 +1,8 @@
 mod app;
 mod blit;
+mod cam;
 mod compute;
+mod environment;
 mod graphics;
 mod input;
 mod scene;

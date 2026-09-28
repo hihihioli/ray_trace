@@ -2,7 +2,8 @@ use crate::graphics::GpuState;
 use crate::input::Input;
 use std::sync::Arc;
 use std::time::Instant;
-use winit::window::Fullscreen;
+use winit::event::{DeviceEvent, DeviceId, KeyEvent};
+use winit::window::{CursorGrabMode, Fullscreen};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent::{self, CloseRequested, RedrawRequested, Resized},
@@ -42,6 +43,10 @@ impl ApplicationHandler for App {
             .with_title("Wgpu Intro")
             .with_fullscreen(Some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        window
+            .set_cursor_grab(CursorGrabMode::Locked)
+            .expect("Couldnt lock cursor");
+        window.set_cursor_visible(false);
 
         let gpu = pollster::block_on(GpuState::new(window));
 
@@ -65,20 +70,51 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             }
             RedrawRequested => {
-                gpu.render();
-                let frame_time = self.instant.elapsed().as_secs_f64() * 1000.0;
+                let dt = self.instant.elapsed();
+                let frame_time = dt.as_secs_f64() * 1000.0;
                 if frame_time != 0.0 {
                     self.avg_fps = self.avg_fps * (self.num as f64 / (self.num as f64 + 1.0));
                     self.avg_fps += frame_time / (self.num as f64 + 1.0);
                     self.num += 1;
+
+                    gpu.window
+                        .set_title(format!("Ray Tracer: {:.4} ms", frame_time).as_str());
                 }
-                gpu.window
-                    .set_title(format!("Ray Tracer: {:.4} ms", frame_time).as_str());
                 self.instant = Instant::now();
+
+                self.input.update_camera(0.001, &mut gpu.camera, dt.as_secs_f32());
+
+                gpu.render(self.input.changed);
+                self.input.reset();
+            }
+            WindowEvent::KeyboardInput {
+                event: KeyEvent {
+                    physical_key: key,
+                    state: pressed,
+                    ..
+                },
+                ..
+            } => {self.input.handle_key_press(key,pressed)}
+            _ => {}
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        match event {
+            DeviceEvent::MouseMotion { delta } => {
+                self.input.mouse_delta.0 += delta.0;
+                self.input.mouse_delta.1 += delta.1;
+                self.input.changed = true;
             }
             _ => {}
         }
     }
+
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         if let Some(gpu) = &self.gpu {
             gpu.window.request_redraw();
