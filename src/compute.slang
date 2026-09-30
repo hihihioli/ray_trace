@@ -18,6 +18,8 @@ struct Uniforms {
     float focal_length;
     float3 camera_center;
     column_major float3x3 rotation_matrix;
+    float aperture;
+    float focus_distance;
 }
 
 ParameterBlock<Textures> textures;
@@ -43,7 +45,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     float viewport_height = 0.024;
     float viewport_width = viewport_height * aspect;
-    uint max_bounces = 32;
+    uint max_bounces = 12;
 
     float delta_u = viewport_width / float(texture_dimensions.x/scale);
     float delta_v = viewport_height / float(texture_dimensions.y/scale);
@@ -55,10 +57,13 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     // offset should be between -.5 and .5 for subpixel aa
     float2 offset = float2(random.random()-0.5, random.random()-0.5);
-    float3 ray_offset_direction =  float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
+    float3 ray_sample_focal_plane = scene.uniforms.focus_distance / scene.uniforms.focal_length * float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
                                           viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
                                           -scene.uniforms.focal_length);
-    Ray offset_ray = Ray(scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_offset_direction)));
+    float2 ray_center = random.random_disk() * scene.uniforms.focal_length / scene.uniforms.aperture / 2;
+    float3 ray_direction = ray_sample_focal_plane - float3(ray_center,0);
+
+    Ray offset_ray = Ray(scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_direction)));
     float4 color = offset_ray.color(max_bounces,random);
 
     float3 old_color = result.Load(threadId.xy).rgb;
@@ -94,7 +99,7 @@ struct Ray {
         Material material;
 
         for (uint i = 0; i < max_bounces; i++) {
-            Interval t_bounds = Interval(0.000001,5000);
+            Interval t_bounds = Interval(0.00001,5000);
             sphere_index = -1;
 
             for (int s = 0; s < scene.uniforms.num_spheres; s++) {
@@ -218,6 +223,14 @@ struct Random {
             r * sin(a),
             z
         );
+    }
+
+    [mutating]
+    float2 random_disk() {
+        float theta = 2 * random() * float.getPi();
+        float r = sqrt(random());
+
+        return float2(r * cos(theta), r * sin(theta));
     }
 
     static uint hash(uint seed) {

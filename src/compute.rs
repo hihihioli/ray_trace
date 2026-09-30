@@ -194,6 +194,9 @@ pub struct ShaderParams {
     camera_center: [f32; 3],
     _padding: u32,
     rotation_matrix: [[f32; 4]; 3],
+    aperture: f32,
+    focus_distance: f32,
+    _padding1: [u32;2],
 }
 
 impl ShaderParams {
@@ -202,10 +205,13 @@ impl ShaderParams {
             frame_count: 0,
             accumulated_frames: 0,
             num_spheres,
-            focal_length: 0.024,
+            focal_length: camera.focal_length,
             rotation_matrix: mat3_to_padded(camera.rotation_matrix()),
             camera_center: camera.center.into(),
             _padding: 0,
+            aperture: camera.aperture,
+            focus_distance: camera.focus_distance,
+            _padding1: [0;2],
         }
     }
 
@@ -221,6 +227,7 @@ impl ShaderParams {
     pub fn update_cam(&mut self, camera: &Camera) {
         self.rotation_matrix = mat3_to_padded(camera.rotation_matrix());
         self.camera_center = camera.center.into();
+
     }
 }
 
@@ -228,9 +235,9 @@ fn mat3_to_padded(matrix: Mat3) -> [[f32;4];3] {
     let cols = matrix.to_cols_array_2d();
 
      [
-        [cols[0][0], cols[1][0], cols[2][0], 0.0],
-        [cols[0][1], cols[1][1], cols[2][1], 0.0],
-        [cols[0][2], cols[1][2], cols[2][2], 0.0],
+        [cols[0][0], cols[0][1], cols[0][2], 0.0],
+        [cols[1][0], cols[1][1], cols[1][2], 0.0],
+        [cols[2][0], cols[2][1], cols[2][2], 0.0],
     ]
 
 }

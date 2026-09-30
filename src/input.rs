@@ -25,10 +25,11 @@ impl Input {
     }
 
     pub fn update_camera(&mut self, sensitivity: f32, camera: &mut Camera, dt: f32) {
-        camera.yaw += self.mouse_delta.0 as f32 * sensitivity;
-        camera.pitch += self.mouse_delta.1 as f32 * sensitivity;
+        camera.yaw -= self.mouse_delta.0 as f32 * sensitivity;
+        camera.pitch -= self.mouse_delta.1 as f32 * sensitivity;
 
-        let rotation = Mat3::from_rotation_y(camera.yaw).inverse();
+        let rotation = Mat3::from_rotation_y(camera.yaw);
+
         let forward = rotation * Vec3::new(0.0,0.0,-1.0);
         let right = rotation * Vec3::new(1.0,0.0,0.0);
         let up = Vec3::new(0.0,1.0,0.0);

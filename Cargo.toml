@@ -11,6 +11,7 @@ winit = "0.30.13"
 bytemuck = "1.25.2"
 serde = { version = "1.0.229", features = ["derive"] }
 exr = "1.74.2"
+rand = "0.10.3"
 
 [package.metadata.bundle]
 name = "Wgpu Intro"

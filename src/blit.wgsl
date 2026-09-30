@@ -20,7 +20,7 @@ fn fs_main(@builtin(position) position: vec4f) -> @location(0) vec4<f32> {
     let hdr = texture_sample.rgb;
     let depth = texture_sample.a;
 
-    let color = aces_tone_map(hdr,1);
+    let color = aces_tone_map(hdr,0);
 
     return vec4<f32>(color,1.0);
 

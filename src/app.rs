@@ -18,6 +18,7 @@ pub struct App {
     instant: Instant,
     avg_fps: f64,
     num: u64,
+    display_time: f64,
 }
 
 impl App {
@@ -28,6 +29,7 @@ impl App {
             instant: Instant::now(),
             avg_fps: 0.0,
             num: 0,
+            display_time: 0.0,
         }
     }
 }
@@ -41,7 +43,7 @@ impl ApplicationHandler for App {
         }
         let window_attributes = WindowAttributes::default()
             .with_title("Wgpu Intro")
-            .with_fullscreen(Some(Fullscreen::Borderless(None)));
+            .with_fullscreen(None /*Some(Fullscreen::Borderless(None))*/);
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         window
             .set_cursor_grab(CursorGrabMode::Locked)
@@ -76,10 +78,16 @@ impl ApplicationHandler for App {
                     self.avg_fps = self.avg_fps * (self.num as f64 / (self.num as f64 + 1.0));
                     self.avg_fps += frame_time / (self.num as f64 + 1.0);
                     self.num += 1;
-
-                    gpu.window
-                        .set_title(format!("Ray Tracer: {:.4} ms", frame_time).as_str());
                 }
+                if self.display_time <= 0.0 {
+                    println!("hi");
+                    gpu.window
+                        .set_title(format!("Ray Tracer: {:.4} ms", self.avg_fps).as_str());
+                    self.display_time = 1000.0;
+                    self.num = 0;
+                }
+                self.display_time -= frame_time;
+
                 self.instant = Instant::now();
 
                 self.input.update_camera(0.001, &mut gpu.camera, dt.as_secs_f32());

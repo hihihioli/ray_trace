@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable, cast_slice};
+use rand::random;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{Buffer, BufferUsages, Device};
 
@@ -12,7 +13,7 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(device: &Device) -> Self {
-        let spheres = vec![
+        let mut spheres = vec![
             SphereGpu {
                 radius: 0.4,
                 center: [0.5, -0.1, -2.],
@@ -26,8 +27,8 @@ impl Scene {
                 _padding: [0; 3],
             },
             SphereGpu {
-                radius: 1024.,
-                center: [0., -1024.5, -2.],
+                radius:6371.,
+                center: [0., -6371.5, -2.],
                 material_index: 1,
                 _padding: [0; 3],
             },
@@ -36,14 +37,31 @@ impl Scene {
                 center: [-0.7,-0.1,-2.0],
                 material_index: 3,
                 _padding: [0;3]
+            },
+            SphereGpu {
+                radius: 3.0,
+                center: [-0.7,-6.0,-2.0],
+                material_index: 3,
+                _padding: [0;3]
             }
         ];
+        for _ in 0..30 {
+            let rand_x: f32 = random::<f32>() * 20.0 + 0.3;
+            let rand_z: f32 = random::<f32>() * 20.0 + 0.3;
+
+            spheres.push(SphereGpu {
+                radius: 0.4,
+                center: [rand_x,-0.1,rand_z],
+                material_index: 0,
+                _padding: [0;3],
+            });
+        }
 
         let materials = vec![
             MaterialGpu {
                 color: [0.7, 0.7, 0.7],
                 emission_strength: 0.0,
-                emission_color: [0., 0., 0.],
+                emission_color: [1., 1., 1.0],
                 smoothness: 0.4,
             },
             MaterialGpu {
@@ -54,9 +72,9 @@ impl Scene {
             },
             MaterialGpu {
                 color: [0.9, 0.9, 0.9],
-                emission_strength: 0.0,
-                emission_color: [1., 0., 0.],
-                smoothness: 0.95,
+                emission_strength: 0.,
+                emission_color: [0.3, 0., 1.],
+                smoothness: 0.97,
             },
             MaterialGpu {
                 color: [0.0, 0.0, 0.0],
