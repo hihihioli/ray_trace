@@ -57,13 +57,15 @@ void main(uint3 threadId: SV_DispatchThreadID) {
 
     // offset should be between -.5 and .5 for subpixel aa
     float2 offset = float2(random.random()-0.5, random.random()-0.5);
-    float3 ray_sample_focal_plane = scene.uniforms.focus_distance / scene.uniforms.focal_length * float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
+    float aperture_radius = (scene.uniforms.focal_length / scene.uniforms.aperture) / 2;
+    float3 ray_sample_focal_plane = scene.uniforms.focus_distance / scene.uniforms.focal_length * float3(
+                                          -viewport_width/2 + (float(threadId.x/scale) + 0.5 + offset.x) * delta_u,
                                           viewport_height/2 - (float(threadId.y/scale) + 0.5 + offset.y) * delta_v,
                                           -scene.uniforms.focal_length);
-    float2 ray_center = random.random_disk() * scene.uniforms.focal_length / scene.uniforms.aperture / 2;
+    float2 ray_center = random.random_disk() * aperture_radius;
     float3 ray_direction = ray_sample_focal_plane - float3(ray_center,0);
 
-    Ray offset_ray = Ray(scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_direction)));
+    Ray offset_ray = Ray(mul(scene.uniforms.rotation_matrix,float3(ray_center,0))+scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_direction)));
     float4 color = offset_ray.color(max_bounces,random);
 
     float3 old_color = result.Load(threadId.xy).rgb;

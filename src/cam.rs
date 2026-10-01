@@ -15,8 +15,8 @@ impl Camera {
             yaw: 0.0,
             pitch: 0.0,
             center: Vec3::ZERO,
-            focal_length: 0.024,
-            aperture: 0.5,
+            focal_length: 0.080,
+            aperture: 2.8,
             focus_distance: 2.0,
         }
     }

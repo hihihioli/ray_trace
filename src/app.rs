@@ -43,7 +43,7 @@ impl ApplicationHandler for App {
         }
         let window_attributes = WindowAttributes::default()
             .with_title("Wgpu Intro")
-            .with_fullscreen(None /*Some(Fullscreen::Borderless(None))*/);
+            .with_fullscreen(Some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         window
             .set_cursor_grab(CursorGrabMode::Locked)
