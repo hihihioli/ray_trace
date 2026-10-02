@@ -20,6 +20,8 @@ struct Uniforms {
     column_major float3x3 rotation_matrix;
     float aperture;
     float focus_distance;
+    float ground_plane_y;
+    int ground_plane_material_index;
 }
 
 ParameterBlock<Textures> textures;
@@ -89,21 +91,34 @@ struct Ray {
         float depth = -1;
         float3 incoming_light = 0;
         float3 color = 1;
-        float t;
-        Sphere hit_sphere;
+        float t = -1;
         int sphere_index;
         float3 normal;
         float3 hit_position;
         float3 emitted_light;
         float3 diffuse_dir;
         float3 specular_dir;
-        float temp_t;
+        Sphere hit_sphere;
         Material material;
+        float temp_t;
+        int material_index;
 
         for (uint i = 0; i < max_bounces; i++) {
             Interval t_bounds = Interval(0.00001,5000);
-            sphere_index = -1;
+            t = -1;
 
+            //check ground plane collision
+            temp_t = (scene.uniforms.ground_plane_y - this.origin.y) / this.direction.y;
+            if (t_bounds.surrounds(temp_t)) {
+                t = temp_t;
+                material_index = scene.uniforms.ground_plane_material_index;
+                t_bounds.max = t;
+                normal = float3(0,1,0);
+                hit_position = this.position(t);
+            }
+
+            //check sphere collisions
+            sphere_index = -1;
             for (int s = 0; s < scene.uniforms.num_spheres; s++) {
                 temp_t = scene.spheres[s].hit(this,t_bounds);
                 if (temp_t > 0) {
@@ -113,18 +128,21 @@ struct Ray {
                 }
             }
             if (sphere_index >= 0) {
-                if (depth < 0) {
-                    depth = t;
-                }
                 hit_sphere = scene.spheres[sphere_index];
-                material = scene.materials[hit_sphere.material_index];
-
+                material_index = hit_sphere.material_index;
                 hit_position = this.position(t);
                 normal = (hit_position - hit_sphere.center) / hit_sphere.radius;
+            }
 
+            if (depth < 0) {
+                depth = t;
+            }
+
+            if (t > 0) {
                 if (dot(this.direction,normal) >= 0) {
                     normal = normal * -1.0;
                 }
+                material = scene.materials[material_index];
 
                 emitted_light = material.emission_color * material.emission_strength;
                 incoming_light += emitted_light * color;

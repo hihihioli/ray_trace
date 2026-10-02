@@ -15,12 +15,11 @@ impl Camera {
             yaw: 0.0,
             pitch: 0.0,
             center: Vec3::ZERO,
-            focal_length: 0.080,
-            aperture: 2.8,
-            focus_distance: 2.0,
+            focal_length: 0.060,
+            aperture: 5.0,
+            focus_distance: 4.0,
         }
     }
-
     pub fn rotation_matrix(&self) -> Mat3 {
         Mat3::from_rotation_y(self.yaw) * Mat3::from_rotation_x(self.pitch)
     }

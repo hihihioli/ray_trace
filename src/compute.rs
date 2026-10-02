@@ -196,7 +196,8 @@ pub struct ShaderParams {
     rotation_matrix: [[f32; 4]; 3],
     aperture: f32,
     focus_distance: f32,
-    _padding1: [u32;2],
+    ground_plane_y: f32,
+    ground_plane_material_index: u32,
 }
 
 impl ShaderParams {
@@ -211,7 +212,8 @@ impl ShaderParams {
             _padding: 0,
             aperture: camera.aperture,
             focus_distance: camera.focus_distance,
-            _padding1: [0;2],
+            ground_plane_y: -0.5,
+            ground_plane_material_index: 1,
         }
     }
 

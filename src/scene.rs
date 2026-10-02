@@ -27,12 +27,6 @@ impl Scene {
                 _padding: [0; 3],
             },
             SphereGpu {
-                radius:6371.,
-                center: [0., -6371.5, -2.],
-                material_index: 1,
-                _padding: [0; 3],
-            },
-            SphereGpu {
                 radius: 0.04,
                 center: [-0.7,-0.1,-2.0],
                 material_index: 3,
@@ -62,25 +56,25 @@ impl Scene {
                 color: [0.7, 0.7, 0.7],
                 emission_strength: 0.0,
                 emission_color: [1., 1., 1.0],
-                smoothness: 0.4,
+                smoothness: 1.0,
             },
             MaterialGpu {
-                color: [0.15, 0.3, 0.2],
+                color: [0.15, 0.7, 0.2],
                 emission_strength: 0.0,
                 emission_color: [0., 0., 0.],
-                smoothness: 0.0,
+                smoothness: 1.0,
             },
             MaterialGpu {
-                color: [0.9, 0.9, 0.9],
+                color: [0.1, 0.9, 0.1],
                 emission_strength: 0.,
                 emission_color: [0.3, 0., 1.],
-                smoothness: 0.97,
+                smoothness: 1.0,
             },
             MaterialGpu {
                 color: [0.0, 0.0, 0.0],
                 emission_strength: 5.0,
                 emission_color: [1., 1., 1.],
-                smoothness: 0.0,
+                smoothness: 1.0,
             },
         ];
 
