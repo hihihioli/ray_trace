@@ -70,10 +70,13 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     Ray offset_ray = Ray(mul(scene.uniforms.rotation_matrix,float3(ray_center,0))+scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_direction)));
     float4 color = offset_ray.color(max_bounces,random);
 
+    if (any(isnan(color)) || any(isinf(color))) {
+        return;
+    }
+
     float3 old_color = result.Load(threadId.xy).rgb;
     float weight = 1/float(accumulated_frames+1);
     float3 color_accumulated = fma(color.rgb - old_color,weight,old_color);
-
 
     result.Store(threadId.xy,float4(color_accumulated,color.a));
 }

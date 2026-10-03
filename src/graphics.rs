@@ -210,7 +210,7 @@ impl GpuState {
             .device
             .create_command_encoder(&CommandEncoderDescriptor { label: None });
 
-        {
+        if self.compute_resources.shader_params.accumulated_frames < 4096 {
             let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("Ray Tracing Pass"),
                 timestamp_writes: None,

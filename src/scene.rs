@@ -15,6 +15,12 @@ impl Scene {
     pub fn new(device: &Device) -> Self {
         let mut spheres = vec![
             SphereGpu {
+                center: [-35.,10.,-10.],
+                radius: 15.0,
+                material_index: 4,
+                _padding: [0;3],
+            },
+            SphereGpu {
                 radius: 0.4,
                 center: [0.5, -0.1, -2.],
                 material_index: 0,
@@ -61,14 +67,14 @@ impl Scene {
             MaterialGpu {
                 color: [0.15, 0.7, 0.2],
                 emission_strength: 0.0,
-                emission_color: [0., 0., 0.],
+                emission_color: [1., 1., 1.],
                 smoothness: 1.0,
             },
             MaterialGpu {
                 color: [0.1, 0.9, 0.1],
                 emission_strength: 0.,
                 emission_color: [0.3, 0., 1.],
-                smoothness: 1.0,
+                smoothness: 0.4,
             },
             MaterialGpu {
                 color: [0.0, 0.0, 0.0],
@@ -76,6 +82,12 @@ impl Scene {
                 emission_color: [1., 1., 1.],
                 smoothness: 1.0,
             },
+            MaterialGpu {
+                color: [0.0,0.0,0.0],
+                emission_strength: 100.0,
+                emission_color: [1.,1.,1.],
+                smoothness: 0.0,
+            }
         ];
 
         let spheres_buffer = device.create_buffer_init(&BufferInitDescriptor {

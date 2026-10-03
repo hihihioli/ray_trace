@@ -77,7 +77,7 @@ struct PixelBuffer {
 }
 
 fn load_exr_rgba32(path: impl AsRef<Path>) -> (Vec<f32>, u32, u32) {
-    let image = read_first_rgba_layer_from_file(
+    match read_first_rgba_layer_from_file(
         path,
         |size, _| PixelBuffer {
             data: vec![0.0; size.width() * size.height() * 4],
@@ -91,11 +91,18 @@ fn load_exr_rgba32(path: impl AsRef<Path>) -> (Vec<f32>, u32, u32) {
             pixels.data[i + 2] = b;
             pixels.data[i + 3] = a;
         },
-    )
-    .expect("Failed to read EXR file");
+    ) {
+        Ok(image) => {
+            let width = image.layer_data.size.width() as u32;
+            let height = image.layer_data.size.height() as u32;
 
-    let width = image.layer_data.size.width() as u32;
-    let height = image.layer_data.size.height() as u32;
+            (image.layer_data.channel_data.pixels.data, width, height)
+        }
+        Err(_) => {
+            let width = 1;
+            let height = 1;
 
-    (image.layer_data.channel_data.pixels.data, width, height)
+            (vec![0.0,0.0,0.0,0.0], width, height)
+        }
+    }
 }

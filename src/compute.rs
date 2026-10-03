@@ -188,7 +188,7 @@ impl ComputeResources {
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 pub struct ShaderParams {
     frame_count: u32,
-    accumulated_frames: u32,
+    pub accumulated_frames: u32,
     num_spheres: u32,
     focal_length: f32,
     camera_center: [f32; 3],

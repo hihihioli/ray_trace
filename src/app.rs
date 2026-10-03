@@ -80,7 +80,7 @@ impl ApplicationHandler for App {
                     self.num += 1;
                 }
                 if self.display_time <= 0.0 {
-                    println!("hi");
+                    println!("{:.4}",self.avg_fps);
                     gpu.window
                         .set_title(format!("Ray Tracer: {:.4} ms", self.avg_fps).as_str());
                     self.display_time = 1000.0;
