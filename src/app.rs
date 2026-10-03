@@ -90,7 +90,7 @@ impl ApplicationHandler for App {
                 self.instant = Instant::now();
 
                 self.input.update_camera(0.001, &mut gpu.camera, dt.as_secs_f32());
-
+                
                 gpu.render(self.input.changed);
                 self.input.reset();
             }

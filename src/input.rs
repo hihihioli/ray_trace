@@ -36,14 +36,13 @@ impl Input {
         let up = Vec3::new(0.0,1.0,0.0);
 
         for key in self.keys.iter() {
-            self.changed = true;
             match key {
-                PhysicalKey::Code(KeyCode::KeyW) => {camera.center += forward * dt},
-                PhysicalKey::Code(KeyCode::KeyS) => {camera.center -= forward * dt},
-                PhysicalKey::Code(KeyCode::KeyA) => {camera.center -= right * dt},
-                PhysicalKey::Code(KeyCode::KeyD) => {camera.center += right * dt},
-                PhysicalKey::Code(KeyCode::Space) => {camera.center += up * dt},
-                PhysicalKey::Code(KeyCode::ShiftLeft) => {camera.center -= up * dt},
+                PhysicalKey::Code(KeyCode::KeyW) => {camera.center += forward * dt; self.changed = true;},
+                PhysicalKey::Code(KeyCode::KeyS) => {camera.center -= forward * dt; self.changed = true;},
+                PhysicalKey::Code(KeyCode::KeyA) => {camera.center -= right * dt; self.changed = true;},
+                PhysicalKey::Code(KeyCode::KeyD) => {camera.center += right * dt; self.changed = true;},
+                PhysicalKey::Code(KeyCode::Space) => {camera.center += up * dt; self.changed = true;},
+                PhysicalKey::Code(KeyCode::ShiftLeft) => {camera.center -= up * dt; self.changed = true;},
                 PhysicalKey::Code(KeyCode::KeyF) => {camera.focusing = true},
                 _ => {}
             }
@@ -52,7 +51,12 @@ impl Input {
 
     pub fn handle_key_press(&mut self, key: PhysicalKey, pressed: ElementState, gpu: &mut GpuState) {
         match pressed {
-            ElementState::Pressed => {self.keys.insert(key); }
+            ElementState::Pressed => {
+                if key == PhysicalKey::Code(KeyCode::KeyF) && !self.keys.contains(&PhysicalKey::Code(KeyCode::KeyF)) {
+                    self.changed = true;
+                }
+                self.keys.insert(key);
+            }
             ElementState::Released => {
                 self.keys.remove(&key);
 
