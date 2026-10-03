@@ -168,11 +168,17 @@ impl GpuState {
     }
 
     pub fn render(&mut self, changed: bool) {
-        if changed {
+        if self.read_depth {
+            self.read_output_depth();
+        }
+
+        if changed || self.read_depth {
             self.compute_resources
                 .shader_params.update_cam(&self.camera);
             self.compute_resources.shader_params.reset_frame_accumulation();
         }
+        self.read_depth = false;
+
         self
             .compute_resources
             .update_uniform_buffer(&self.queue);
@@ -245,65 +251,69 @@ impl GpuState {
         self.queue.present(frame);
 
         self.compute_resources.shader_params.increment_frame_count();
+    }
 
-        if self.read_depth {
-            let pixel_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Pixel Staging Buffer"),
-                size: 256,
-                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                mapped_at_creation: false,
-            });
+    fn read_output_depth(&mut self) {
+        let pixel_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Pixel Staging Buffer"),
+            size: 256,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
 
-            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Pixel Copy Encoder"),
-            });
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Pixel Copy Encoder"),
+        });
 
-            // If reading from a texture:
-            encoder.copy_texture_to_buffer(
-                TexelCopyTextureInfo {
-                    texture: &self.out_texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d { x: self.size.width / 2, y: self.size.height / 2, z: 0 },
-                    aspect: wgpu::TextureAspect::All,
+        // If reading from a texture:
+        encoder.copy_texture_to_buffer(
+            TexelCopyTextureInfo {
+                texture: &self.out_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x: self.size.width / 2, y: self.size.height / 2, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            TexelCopyBufferInfo {
+                buffer: &pixel_buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(256), // Must be a multiple of 256
+                    rows_per_image: Some(1),
                 },
-                TexelCopyBufferInfo {
-                    buffer: &pixel_buffer,
-                    layout: wgpu::TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(256), // Must be a multiple of 256
-                        rows_per_image: Some(1),
-                    },
-                },
-                Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
-            );
+            },
+            Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+        );
 
-            self.queue.submit(Some(encoder.finish()));
+        self.queue.submit(Some(encoder.finish()));
 
-            let buffer_slice = pixel_buffer.slice(..16); // Only read the first 4 bytes (1 pixel)
-            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                result.unwrap();
-            });
+        let buffer_slice = pixel_buffer.slice(..16); // Only read the first 4 bytes (1 pixel)
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            result.unwrap();
+        });
 
-            // Poll device to finish the operation
-            self.device.poll(PollType::Wait { submission_index: None, timeout: None }).expect("TODO: panic message");
+        // Poll device to finish the operation
+        self.device.poll(PollType::Wait { submission_index: None, timeout: None }).expect("TODO: panic message");
 
-            // Read the data
-            let data = buffer_slice.get_mapped_range().unwrap();
-            let pixel_color: [f32; 4] = data
-                .chunks_exact(4)
-                .map(|chunk| f32::from_ne_bytes(chunk.try_into().unwrap()))
-                .collect::<Vec<f32>>()
-                .try_into()
-                .unwrap();
+        // Read the data
+        let data = buffer_slice.get_mapped_range().unwrap();
+        let pixel_color: [f32; 4] = data
+            .chunks_exact(4)
+            .map(|chunk| f32::from_ne_bytes(chunk.try_into().unwrap()))
+            .collect::<Vec<f32>>()
+            .try_into()
+            .unwrap();
 
+        if pixel_color[3] > 0.0 {
             self.camera.focus_distance = pixel_color[3];
-            self.compute_resources.shader_params.update_cam(&mut self.camera);
-            println!("{}", pixel_color[3]);
-
-            drop(data);
-            pixel_buffer.unmap();
-            self.read_depth = false;
+        } else {
+            self.camera.focus_distance = 2f32.powi(16);
         }
+        self.compute_resources.shader_params.update_cam(&mut self.camera);
+        println!("{}", pixel_color[3]);
+
+
+        drop(data);
+        pixel_buffer.unmap();
     }
 }
 

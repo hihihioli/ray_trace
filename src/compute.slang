@@ -157,7 +157,7 @@ struct Ray {
                 incoming_light += emitted_light * color;
 
                 color *= material.color;
-                this.origin = hit_position + normal * 1e-3;
+                this.origin = hit_position + normal * 1e-4;
 
                 diffuse_dir = normalize(normal + random.random_unit_vector());
                 specular_dir = this.direction - 2 * dot(this.direction,normal) * normal;

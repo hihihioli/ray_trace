@@ -230,6 +230,7 @@ impl ShaderParams {
         self.rotation_matrix = mat3_to_padded(camera.rotation_matrix());
         self.camera_center = camera.center.into();
         self.focusing = camera.focusing.into();
+        self.focus_distance = camera.focus_distance;
     }
 }
 

@@ -62,13 +62,13 @@ impl Scene {
                 color: [0.7, 0.7, 0.7],
                 emission_strength: 0.0,
                 emission_color: [1., 1., 1.0],
-                smoothness: 1.0,
+                smoothness: 0.3,
             },
             MaterialGpu {
                 color: [0.15, 0.7, 0.2],
                 emission_strength: 0.0,
                 emission_color: [1., 1., 1.],
-                smoothness: 1.0,
+                smoothness: 0.1,
             },
             MaterialGpu {
                 color: [0.1, 0.9, 0.1],
@@ -84,7 +84,7 @@ impl Scene {
             },
             MaterialGpu {
                 color: [0.0,0.0,0.0],
-                emission_strength: 100.0,
+                emission_strength: 20.0,
                 emission_color: [1.,1.,1.],
                 smoothness: 0.0,
             }
