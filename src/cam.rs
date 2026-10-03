@@ -17,7 +17,7 @@ impl Camera {
             pitch: 0.0,
             center: Vec3::ZERO,
             focal_length: 0.035,
-            aperture: 1.8,
+            aperture: 100000.8,
             focus_distance: 2.0,
             focusing: false,
         }

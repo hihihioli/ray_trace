@@ -115,6 +115,11 @@ struct Ray {
         Material material;
         float temp_t;
         int material_index;
+        bool front_face;
+        float ior_ratio;
+        float cosine_theta;
+        float sine_theta;
+        bool cannot_refract;
 
         for (uint i = 0; i < max_bounces; i++) {
             Interval t_bounds = Interval(0.00001,5000);
@@ -148,20 +153,43 @@ struct Ray {
             }
 
             if (t > 0) {
-                if (dot(this.direction,normal) >= 0) {
-                    normal = normal * -1.0;
-                }
+                front_face = dot(this.direction,normal) < 0;
+                normal = front_face ? normal : -normal;
+
                 material = scene.materials[material_index];
 
-                emitted_light = material.emission_color * material.emission_strength;
-                incoming_light += emitted_light * color;
+                if (random.random() > material.transmission) {
+                    // opaque
+                    emitted_light = material.emission_color * material.emission_strength;
+                    incoming_light += emitted_light * color;
 
-                color *= material.color;
-                this.origin = hit_position + normal * 1e-4;
+                    color *= material.color;
+                    this.origin = hit_position + normal * 1e-3;
 
-                diffuse_dir = normalize(normal + random.random_unit_vector());
-                specular_dir = this.direction - 2 * dot(this.direction,normal) * normal;
-                this.direction = normalize(lerp(diffuse_dir,specular_dir,material.smoothness));
+                    diffuse_dir = normalize(normal + random.random_unit_vector());
+                    specular_dir = this.reflect(normal);
+                    this.direction = normalize(lerp(diffuse_dir,specular_dir,material.smoothness));
+                } else {
+                    // translucent
+                    normal = normalize(normal + (1 - material.smoothness) * random.random_unit_vector());
+                    ior_ratio = front_face ? 1 / material.ior : material.ior;
+                    cosine_theta = min(dot(-this.direction,normal),1);
+                    sine_theta = sqrt(1 - cosine_theta * cosine_theta);
+
+                    cannot_refract = ior_ratio * sine_theta > 1;
+
+                    if (cannot_refract || reflectance(cosine_theta, ior_ratio) > random.random()) {
+                        this.direction = this.reflect(normal);
+                        this.origin = hit_position + normal * 1e-3;
+                    } else {
+                        this.direction = this.refract(normal, ior_ratio);
+                        this.origin = hit_position - normal * 1e-3;
+                    }
+
+                    if (!front_face) {
+                        color *= pow(material.color,t);
+                    }
+                }
             } else {
                 incoming_light += this.sample_environment() * color;
                 break;
@@ -199,6 +227,17 @@ struct Ray {
 
         float2 location = float2(yaw / (2 * float.getPi()) + 0.5 + 0.075, pitch/float.getPi());
         return textures.environment.SampleLevel(textures.sampler, location, 0.0).rgb;
+    }
+
+    float3 reflect(float3 normal) {
+        return this.direction - 2 * dot(this.direction,normal) * normal;
+    }
+
+    float3 refract(float3 normal, float refraction_index) {
+        float cos_theta = min(dot(-this.direction, normal), 1.0);
+        float3 r_out_perp =  refraction_index * (this.direction + cos_theta*normal);
+        float3 r_out_parallel = -sqrt(abs(1.0 - dot(r_out_perp,r_out_perp))) * normal;
+        return r_out_perp + r_out_parallel;
     }
 }
 
@@ -300,4 +339,12 @@ struct Material {
     float emission_strength;
     float3 emission_color;
     float smoothness;
+    float ior;
+    float transmission;
+}
+
+float reflectance(float cosine, float refract_ratio) {
+        float r0 = (1 - refract_ratio) / (1 + refract_ratio);
+        r0 = r0 * r0;
+        return r0 + (1 - r0)*pow(1 - cosine,5);
 }
