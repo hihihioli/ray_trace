@@ -85,7 +85,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float weight = 1/float(accumulated_frames+1);
     float3 color_accumulated = fma(color.rgb - old_color,weight,old_color);
 
-    if (scene.uniforms.focusing == 1 && (pow(float(threadId.x) - float(texture_dimensions.x)/2,2) + pow(float(threadId.y) - float(texture_dimensions.y)/2,2) < 200)) {
+    if (scene.uniforms.focusing == 1 && (pow(float(threadId.x) - float(texture_dimensions.x)/2,2) + pow(float(threadId.y) - float(texture_dimensions.y)/2,2) < 25)) {
         result.Store(threadId.xy,float4(float3(1,0,0),depth));
     } else {
         result.Store(threadId.xy,float4(color_accumulated,depth));

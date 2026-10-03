@@ -102,7 +102,7 @@ fn load_exr_rgba32(path: impl AsRef<Path>) -> (Vec<f32>, u32, u32) {
             let width = 1;
             let height = 1;
 
-            (vec![0.0,0.0,0.0,0.0], width, height)
+            (vec![0.0, 0.0, 0.0, 0.0], width, height)
         }
     }
 }

@@ -6,8 +6,15 @@ use crate::scene::Scene;
 use std::path::Path;
 use std::sync::Arc;
 use wgpu::BindingResource::{Sampler, TextureView};
-use wgpu::{BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyTextureInfo, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
 use wgpu::wgt::PollType;
+use wgpu::{
+    BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor,
+    CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
+    Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface,
+    SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyTextureInfo, Texture, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureViewDescriptor,
+};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -90,10 +97,10 @@ impl GpuState {
         let scene = Scene::new(&device);
 
         let camera = Camera::new();
-        let compute_resources = ComputeResources::new(&device, &texture_view, &scene, &environment, &camera);
+        let compute_resources =
+            ComputeResources::new(&device, &texture_view, &scene, &environment, &camera);
 
         let blit_resources = BlitResources::new(&device, config.format, &texture_view);
-        
 
         Self {
             window,
@@ -174,14 +181,15 @@ impl GpuState {
 
         if changed || self.read_depth {
             self.compute_resources
-                .shader_params.update_cam(&self.camera);
-            self.compute_resources.shader_params.reset_frame_accumulation();
+                .shader_params
+                .update_cam(&self.camera);
+            self.compute_resources
+                .shader_params
+                .reset_frame_accumulation();
         }
         self.read_depth = false;
 
-        self
-            .compute_resources
-            .update_uniform_buffer(&self.queue);
+        self.compute_resources.update_uniform_buffer(&self.queue);
 
         let frame = match self.surface.get_current_texture() {
             Success(frame) => frame,      //the frame
@@ -261,16 +269,22 @@ impl GpuState {
             mapped_at_creation: false,
         });
 
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Pixel Copy Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Pixel Copy Encoder"),
+            });
 
         // If reading from a texture:
         encoder.copy_texture_to_buffer(
             TexelCopyTextureInfo {
                 texture: &self.out_texture,
                 mip_level: 0,
-                origin: wgpu::Origin3d { x: self.size.width / 2, y: self.size.height / 2, z: 0 },
+                origin: wgpu::Origin3d {
+                    x: self.size.width / 2,
+                    y: self.size.height / 2,
+                    z: 0,
+                },
                 aspect: wgpu::TextureAspect::All,
             },
             TexelCopyBufferInfo {
@@ -281,7 +295,11 @@ impl GpuState {
                     rows_per_image: Some(1),
                 },
             },
-            Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
 
         self.queue.submit(Some(encoder.finish()));
@@ -292,7 +310,12 @@ impl GpuState {
         });
 
         // Poll device to finish the operation
-        self.device.poll(PollType::Wait { submission_index: None, timeout: None }).expect("TODO: panic message");
+        self.device
+            .poll(PollType::Wait {
+                submission_index: None,
+                timeout: None,
+            })
+            .expect("TODO: panic message");
 
         // Read the data
         let data = buffer_slice.get_mapped_range().unwrap();
@@ -308,9 +331,10 @@ impl GpuState {
         } else {
             self.camera.focus_distance = 2f32.powi(16);
         }
-        self.compute_resources.shader_params.update_cam(&mut self.camera);
+        self.compute_resources
+            .shader_params
+            .update_cam(&mut self.camera);
         println!("{}", pixel_color[3]);
-
 
         drop(data);
         pixel_buffer.unmap();
@@ -329,7 +353,9 @@ fn create_output_texture(device: &Device, size: &PhysicalSize<u32>) -> Texture {
         sample_count: 1,
         dimension: TextureDimension::D2,
         format: TextureFormat::Rgba32Float,
-        usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        usage: wgpu::TextureUsages::STORAGE_BINDING
+            | wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::COPY_SRC,
         view_formats: &[],
     })
 }

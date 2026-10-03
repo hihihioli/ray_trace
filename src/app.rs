@@ -89,19 +89,21 @@ impl ApplicationHandler for App {
 
                 self.instant = Instant::now();
 
-                self.input.update_camera(0.001, &mut gpu.camera, dt.as_secs_f32());
+                self.input
+                    .update_camera(0.001, &mut gpu.camera, dt.as_secs_f32());
 
                 gpu.render(self.input.changed);
                 self.input.reset();
             }
             WindowEvent::KeyboardInput {
-                event: KeyEvent {
-                    physical_key: key,
-                    state: pressed,
-                    ..
-                },
+                event:
+                    KeyEvent {
+                        physical_key: key,
+                        state: pressed,
+                        ..
+                    },
                 ..
-            } => {self.input.handle_key_press(key,pressed,&mut gpu)}
+            } => self.input.handle_key_press(key, pressed, &mut gpu),
             _ => {}
         }
     }

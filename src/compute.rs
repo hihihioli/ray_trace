@@ -1,3 +1,4 @@
+use crate::cam::Camera;
 use crate::environment::Environment;
 use crate::scene::Scene;
 use bytemuck::{Pod, Zeroable};
@@ -11,7 +12,6 @@ use wgpu::{
     ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType, TextureViewDimension,
     include_spirv,
 };
-use crate::cam::Camera;
 
 pub struct ComputeResources {
     pub pipeline: ComputePipeline,
@@ -234,13 +234,12 @@ impl ShaderParams {
     }
 }
 
-fn mat3_to_padded(matrix: Mat3) -> [[f32;4];3] {
+fn mat3_to_padded(matrix: Mat3) -> [[f32; 4]; 3] {
     let cols = matrix.to_cols_array_2d();
 
-     [
+    [
         [cols[0][0], cols[0][1], cols[0][2], 0.0],
         [cols[1][0], cols[1][1], cols[1][2], 0.0],
         [cols[2][0], cols[2][1], cols[2][2], 0.0],
     ]
-
 }

@@ -15,10 +15,10 @@ impl Scene {
     pub fn new(device: &Device) -> Self {
         let mut spheres = vec![
             SphereGpu {
-                center: [-35.,10.,-10.],
+                center: [-35., 10., -10.],
                 radius: 15.0,
                 material_index: 4,
-                _padding: [0;3],
+                _padding: [0; 3],
             },
             SphereGpu {
                 radius: 0.4,
@@ -34,16 +34,16 @@ impl Scene {
             },
             SphereGpu {
                 radius: 0.04,
-                center: [-0.7,-0.1,-2.0],
+                center: [-0.7, -0.1, -2.0],
                 material_index: 3,
-                _padding: [0;3]
+                _padding: [0; 3],
             },
             SphereGpu {
                 radius: 3.0,
-                center: [-0.7,-6.0,-2.0],
+                center: [-0.7, -6.0, -2.0],
                 material_index: 3,
-                _padding: [0;3]
-            }
+                _padding: [0; 3],
+            },
         ];
         for _ in 0..30 {
             let rand_x: f32 = random::<f32>() * 20.0 + 0.3;
@@ -51,9 +51,9 @@ impl Scene {
 
             spheres.push(SphereGpu {
                 radius: 0.4,
-                center: [rand_x,-0.1,rand_z],
+                center: [rand_x, -0.1, rand_z],
                 material_index: 0,
-                _padding: [0;3],
+                _padding: [0; 3],
             });
         }
 
@@ -83,11 +83,11 @@ impl Scene {
                 smoothness: 1.0,
             },
             MaterialGpu {
-                color: [0.0,0.0,0.0],
+                color: [0.0, 0.0, 0.0],
                 emission_strength: 20.0,
-                emission_color: [1.,1.,1.],
+                emission_color: [1., 1., 1.],
                 smoothness: 0.0,
-            }
+            },
         ];
 
         let spheres_buffer = device.create_buffer_init(&BufferInitDescriptor {
