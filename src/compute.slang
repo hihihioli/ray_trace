@@ -17,6 +17,7 @@ struct Uniforms {
     uint num_spheres;
     float focal_length;
     float3 camera_center;
+    uint focusing;
     column_major float3x3 rotation_matrix;
     float aperture;
     float focus_distance;
@@ -56,6 +57,12 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     uint pixel_index = threadId.x/scale + threadId.y/scale * texture_dimensions.x/scale;
     Random random = Random(pixel_index^Random.hash(frame_count));
 
+    // first get pure depth w/o any effects
+    float3 depth_sample_dir = float3(-viewport_width/2 + (float(threadId.x/scale) + 0.5) * delta_u,
+                                     viewport_height/2 - (float(threadId.y/scale) + 0.5) * delta_v,
+                                     -scene.uniforms.focal_length);
+    Ray depth_sample_ray = Ray(scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(depth_sample_dir)));
+    float depth = depth_sample_ray.get_depth();
 
     // offset should be between -.5 and .5 for subpixel aa
     float2 offset = float2(random.random()-0.5, random.random()-0.5);
@@ -68,7 +75,7 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float3 ray_direction = ray_sample_focal_plane - float3(ray_center,0);
 
     Ray offset_ray = Ray(mul(scene.uniforms.rotation_matrix,float3(ray_center,0))+scene.uniforms.camera_center,mul(scene.uniforms.rotation_matrix, normalize(ray_direction)));
-    float4 color = offset_ray.color(max_bounces,random);
+    float3 color = offset_ray.color(max_bounces,random);
 
     if (any(isnan(color)) || any(isinf(color))) {
         return;
@@ -78,7 +85,11 @@ void main(uint3 threadId: SV_DispatchThreadID) {
     float weight = 1/float(accumulated_frames+1);
     float3 color_accumulated = fma(color.rgb - old_color,weight,old_color);
 
-    result.Store(threadId.xy,float4(color_accumulated,color.a));
+    if (scene.uniforms.focusing == 1 && (pow(float(threadId.x) - float(texture_dimensions.x)/2,2) + pow(float(threadId.y) - float(texture_dimensions.y)/2,2) < 200)) {
+        result.Store(threadId.xy,float4(float3(1,0,0),depth));
+    } else {
+        result.Store(threadId.xy,float4(color_accumulated,depth));
+    }
 }
 
 struct Ray {
@@ -90,8 +101,7 @@ struct Ray {
     };
 
     [mutating]
-    float4 color(uint max_bounces, inout Random random) {
-        float depth = -1;
+    float3 color(uint max_bounces, inout Random random) {
         float3 incoming_light = 0;
         float3 color = 1;
         float t = -1;
@@ -137,10 +147,6 @@ struct Ray {
                 normal = (hit_position - hit_sphere.center) / hit_sphere.radius;
             }
 
-            if (depth < 0) {
-                depth = t;
-            }
-
             if (t > 0) {
                 if (dot(this.direction,normal) >= 0) {
                     normal = normal * -1.0;
@@ -161,7 +167,30 @@ struct Ray {
                 break;
             }
         }
-        return float4(incoming_light,depth);
+        return float3(incoming_light);
+    }
+
+    float get_depth() {
+        Interval t_bounds = Interval(0.00001,5000);
+        float t = -1;
+
+        //check ground plane collision
+        float temp_t = (scene.uniforms.ground_plane_y - this.origin.y) / this.direction.y;
+        if (t_bounds.surrounds(temp_t)) {
+            t = temp_t;
+            t_bounds.max = t;
+        }
+
+        //check sphere collisions
+        for (int s = 0; s < scene.uniforms.num_spheres; s++) {
+            temp_t = scene.spheres[s].hit(this,t_bounds);
+            if (temp_t > 0) {
+                t = temp_t;
+                t_bounds.max = t;
+            }
+        }
+
+        return t;
     }
 
     float3 sample_environment() {

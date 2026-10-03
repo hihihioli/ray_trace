@@ -6,14 +6,8 @@ use crate::scene::Scene;
 use std::path::Path;
 use std::sync::Arc;
 use wgpu::BindingResource::{Sampler, TextureView};
-use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor,
-    CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
-    Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface,
-    SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
-};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, CommandEncoderDescriptor, ComputePassDescriptor, CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation}, Device, DeviceDescriptor, Extent3d, Features, Instance, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyTextureInfo, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureViewDescriptor};
+use wgpu::wgt::PollType;
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -38,6 +32,8 @@ pub struct GpuState {
     environment: Environment,
 
     pub camera: Camera,
+
+    pub read_depth: bool,
 }
 
 impl GpuState {
@@ -113,6 +109,7 @@ impl GpuState {
             scene,
             environment,
             camera,
+            read_depth: false,
         }
     }
 
@@ -210,7 +207,7 @@ impl GpuState {
             .device
             .create_command_encoder(&CommandEncoderDescriptor { label: None });
 
-        if self.compute_resources.shader_params.accumulated_frames < 4096 {
+        {
             let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("Ray Tracing Pass"),
                 timestamp_writes: None,
@@ -248,6 +245,65 @@ impl GpuState {
         self.queue.present(frame);
 
         self.compute_resources.shader_params.increment_frame_count();
+
+        if self.read_depth {
+            let pixel_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Pixel Staging Buffer"),
+                size: 256,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Pixel Copy Encoder"),
+            });
+
+            // If reading from a texture:
+            encoder.copy_texture_to_buffer(
+                TexelCopyTextureInfo {
+                    texture: &self.out_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d { x: self.size.width / 2, y: self.size.height / 2, z: 0 },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                TexelCopyBufferInfo {
+                    buffer: &pixel_buffer,
+                    layout: wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(256), // Must be a multiple of 256
+                        rows_per_image: Some(1),
+                    },
+                },
+                Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            );
+
+            self.queue.submit(Some(encoder.finish()));
+
+            let buffer_slice = pixel_buffer.slice(..16); // Only read the first 4 bytes (1 pixel)
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                result.unwrap();
+            });
+
+            // Poll device to finish the operation
+            self.device.poll(PollType::Wait { submission_index: None, timeout: None }).expect("TODO: panic message");
+
+            // Read the data
+            let data = buffer_slice.get_mapped_range().unwrap();
+            let pixel_color: [f32; 4] = data
+                .chunks_exact(4)
+                .map(|chunk| f32::from_ne_bytes(chunk.try_into().unwrap()))
+                .collect::<Vec<f32>>()
+                .try_into()
+                .unwrap();
+
+            self.camera.focus_distance = pixel_color[3];
+            self.compute_resources.shader_params.update_cam(&mut self.camera);
+            println!("{}", pixel_color[3]);
+
+            drop(data);
+            pixel_buffer.unmap();
+            self.read_depth = false;
+        }
     }
 }
 
@@ -263,7 +319,7 @@ fn create_output_texture(device: &Device, size: &PhysicalSize<u32>) -> Texture {
         sample_count: 1,
         dimension: TextureDimension::D2,
         format: TextureFormat::Rgba32Float,
-        usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+        usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
         view_formats: &[],
     })
 }

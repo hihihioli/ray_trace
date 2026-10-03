@@ -192,7 +192,7 @@ pub struct ShaderParams {
     num_spheres: u32,
     focal_length: f32,
     camera_center: [f32; 3],
-    _padding: u32,
+    focusing: u32,
     rotation_matrix: [[f32; 4]; 3],
     aperture: f32,
     focus_distance: f32,
@@ -209,7 +209,7 @@ impl ShaderParams {
             focal_length: camera.focal_length,
             rotation_matrix: mat3_to_padded(camera.rotation_matrix()),
             camera_center: camera.center.into(),
-            _padding: 0,
+            focusing: camera.focusing.into(),
             aperture: camera.aperture,
             focus_distance: camera.focus_distance,
             ground_plane_y: -0.5,
@@ -229,7 +229,7 @@ impl ShaderParams {
     pub fn update_cam(&mut self, camera: &Camera) {
         self.rotation_matrix = mat3_to_padded(camera.rotation_matrix());
         self.camera_center = camera.center.into();
-
+        self.focusing = camera.focusing.into();
     }
 }
 

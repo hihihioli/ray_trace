@@ -7,6 +7,7 @@ pub struct Camera {
     pub focal_length: f32,
     pub aperture: f32,
     pub focus_distance: f32,
+    pub focusing: bool,
 }
 
 impl Camera {
@@ -18,6 +19,7 @@ impl Camera {
             focal_length: 0.035,
             aperture: 0.6,
             focus_distance: 2.0,
+            focusing: false,
         }
     }
     pub fn rotation_matrix(&self) -> Mat3 {

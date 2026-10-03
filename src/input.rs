@@ -3,6 +3,7 @@ use glam::{Mat3, Vec3};
 use std::collections::HashSet;
 use winit::event::ElementState;
 use winit::keyboard::{Key, KeyCode, PhysicalKey};
+use crate::graphics::GpuState;
 
 pub struct Input {
     pub keys: HashSet<PhysicalKey>,
@@ -43,15 +44,24 @@ impl Input {
                 PhysicalKey::Code(KeyCode::KeyD) => {camera.center += right * dt},
                 PhysicalKey::Code(KeyCode::Space) => {camera.center += up * dt},
                 PhysicalKey::Code(KeyCode::ShiftLeft) => {camera.center -= up * dt},
-                _ => {self.changed = false;}
+                PhysicalKey::Code(KeyCode::KeyF) => {camera.focusing = true},
+                _ => {}
             }
         }
     }
 
-    pub fn handle_key_press(&mut self, key: PhysicalKey, pressed: ElementState) {
+    pub fn handle_key_press(&mut self, key: PhysicalKey, pressed: ElementState, gpu: &mut GpuState) {
         match pressed {
             ElementState::Pressed => {self.keys.insert(key); }
-            ElementState::Released => {self.keys.remove(&key);}
+            ElementState::Released => {
+                self.keys.remove(&key);
+
+                if  key == PhysicalKey::Code(KeyCode::KeyF) {
+                    gpu.camera.focusing = false;
+                    self.changed = true;
+                    gpu.read_depth = true;
+                }
+            }
         }
     }
 }

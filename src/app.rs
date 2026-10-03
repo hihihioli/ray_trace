@@ -61,7 +61,7 @@ impl ApplicationHandler for App {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        let gpu = if let Some(gpu) = self.gpu.as_mut() {
+        let mut gpu = if let Some(gpu) = self.gpu.as_mut() {
             gpu
         } else {
             return;
@@ -80,7 +80,6 @@ impl ApplicationHandler for App {
                     self.num += 1;
                 }
                 if self.display_time <= 0.0 {
-                    println!("{:.4}",self.avg_fps);
                     gpu.window
                         .set_title(format!("Ray Tracer: {:.4} ms", self.avg_fps).as_str());
                     self.display_time = 1000.0;
@@ -102,7 +101,7 @@ impl ApplicationHandler for App {
                     ..
                 },
                 ..
-            } => {self.input.handle_key_press(key,pressed)}
+            } => {self.input.handle_key_press(key,pressed,&mut gpu)}
             _ => {}
         }
     }
